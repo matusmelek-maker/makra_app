@@ -39,10 +39,20 @@ function toNum(v) {
   return Number.isFinite(n) ? { n, kj: /kj/i.test(s) } : undefined;
 }
 
+// Jeden záznam ako text: berie číslo pri jednotke, aby dátum/čas v riadku ("2. 10. 2026 8:15 – 120 kcal") nevadil
+const UNIT_RE = /(\d[\d.,  ]*)\s*(kcal|kj|cal|g)\b/i;
+function lineNum(v) {
+  const m = typeof v === 'string' && v.match(UNIT_RE);
+  if (!m) return toNum(v);
+  const r = toNum(m[1]);
+  if (r) r.kj = /kj/i.test(m[2]);
+  return r;
+}
+
 // Zoznam záznamov zo Zdravia ako text (každý na riadku, napr. "120 kcal") -> súčet
 function sumList(v) {
   const lines = Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[\r\n;]+/) : [];
-  const parts = lines.map(toNum).filter(Boolean);
+  const parts = lines.map(lineNum).filter(Boolean);
   if (!parts.length) return undefined;
   return { n: parts.reduce((s, p) => s + (p.kj ? p.n / KJ_PER_KCAL : p.n), 0), kj: false, count: parts.length };
 }
