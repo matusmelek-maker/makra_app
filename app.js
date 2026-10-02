@@ -129,7 +129,7 @@ function renderDay(view) {
     <section class="card hero" id="hero"></section>
 
     <section class="card">
-      <h2>Jedlo <button class="btn small secondary" id="from-health">Zo Zdravia</button></h2>
+      <h2>Jedlo <button class="btn small secondary" id="from-health">Nahrať zo Zdravia</button></h2>
       <div id="health-box"></div>
       <div class="fields">
         ${field({ id: 'kcal', label: 'Zjedené kalórie', unit: 'kcal', value: day.kcal, cls: 'full', mode: 'numeric' })}
@@ -170,13 +170,39 @@ function renderDay(view) {
     $('#' + key, view).addEventListener('input', (e) => setDayField(key, parseNum(e.target.value)));
   }
   $('#note', view).addEventListener('input', (e) => setDayField('note', e.target.value.trim() || undefined));
-  $('#from-health', view).addEventListener('click', () => healthImport(view));
+  $('#from-health', view).addEventListener('click', () => { healthPanelOpen = !healthPanelOpen; renderHealthBox(view); });
   renderHealthBox(view);
   updateDayComputed();
 }
 
-// ---------- import z Apple Zdravia (cez schránku) ----------
-async function healthImport(view) {
+// ---------- import z Apple Zdravia ----------
+// Webová appka nemá prístup k Zdraviu. Preto: appka spustí skratku v iPhone s dátumom -> skratka prečíta
+// Zdravie a skopíruje údaje do schránky -> po návrate do appky sa vložia (ťuknutie + "Vložiť").
+const PENDING_KEY = 'makra-health-pending';
+let healthPanelOpen = false;
+
+function pendingHealth() {
+  try {
+    const p = JSON.parse(localStorage.getItem(PENDING_KEY));
+    return p && Date.now() - p.at < 30 * 60e3 ? p.date : null; // platí 30 min
+  } catch {
+    return null;
+  }
+}
+function setPendingHealth(date) {
+  try {
+    if (date) localStorage.setItem(PENDING_KEY, JSON.stringify({ date, at: Date.now() }));
+    else localStorage.removeItem(PENDING_KEY);
+  } catch {}
+}
+
+function runHealthShortcut(date) {
+  setPendingHealth(date);
+  const name = data.settings.shortcutName || 'Makrá zo Zdravia';
+  location.href = `shortcuts://run-shortcut?name=${encodeURIComponent(name)}&input=text&text=${date}`;
+}
+
+async function pasteHealth(view) {
   let text;
   try {
     text = await navigator.clipboard.readText();
@@ -195,18 +221,32 @@ function applyHealth(text, view) {
     renderHealthBox(view, { error: e.message, paste: true });
     return;
   }
-  const date = p.date || currentDate;
+  const date = p.date || pendingHealth() || currentDate;
   const prev = data.days[date] ? { ...data.days[date] } : undefined;
   data.days[date] = { ...(data.days[date] || {}), ...p.values };
   save(true);
+  setPendingHealth(null);
+  healthPanelOpen = false;
   lastImport = { date, prev, values: p.values };
   currentDate = date;
   renderDay(view);
-  toast('Načítané zo Zdravia');
+  toast(`Načítané zo Zdravia za ${dmy(date)}`);
+}
+
+// Po návrate zo Skratiek ukáž krok 2
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && tab === 'day' && pendingHealth()) renderHealthBox($('#view'));
+});
+
+function closeHealth(view) {
+  healthPanelOpen = false;
+  setPendingHealth(null);
+  renderHealthBox(view);
 }
 
 function renderHealthBox(view, { error, paste } = {}) {
   const box = $('#health-box', view);
+  if (!box) return;
   if (error || paste) {
     box.innerHTML = `<div class="callout ${error ? 'bg-bad' : 'bg-none'}" style="margin:0 0 12px">
       ${error ? `<div style="margin-bottom:8px">${esc(error)}</div>` : ''}
@@ -215,7 +255,25 @@ function renderHealthBox(view, { error, paste } = {}) {
       <div class="btn-row" style="margin-top:8px"><button class="btn small secondary" id="health-cancel">Zrušiť</button></div>
     </div>`;
     $('#health-paste', box).addEventListener('input', (e) => e.target.value.trim() && applyHealth(e.target.value, view));
-    $('#health-cancel', box).addEventListener('click', () => renderHealthBox(view));
+    $('#health-cancel', box).addEventListener('click', () => closeHealth(view));
+    return;
+  }
+  const pend = pendingHealth();
+  if (healthPanelOpen || pend) {
+    box.innerHTML = `<div class="callout bg-none" style="margin:0 0 12px">
+      <div class="field"><label for="health-date">Za deň</label><input id="health-date" type="date" value="${pend || currentDate}"></div>
+      <div class="btn-row" style="margin-top:10px;flex-direction:column">
+        <button class="btn ${pend ? 'secondary' : ''}" id="health-run">1. Načítať zo Zdravia</button>
+        <button class="btn ${pend ? '' : 'secondary'}" id="health-paste-btn">2. Vložiť údaje</button>
+      </div>
+      <div style="font-size:13px;margin-top:10px">${pend
+        ? `Skratka načítava ${dmy(pend)}. Keď skončí, vráť sa sem a ťukni <b>2. Vložiť údaje</b> → <b>Vložiť</b>.`
+        : 'Ťukni <b>1</b> → v iPhone sa spustí skratka → vráť sa sem → ťukni <b>2</b> → <b>Vložiť</b>.'}</div>
+      <div style="text-align:right;margin-top:6px"><button class="chip-btn" id="health-close">Zavrieť</button></div>
+    </div>`;
+    $('#health-run', box).addEventListener('click', () => runHealthShortcut($('#health-date', box).value || currentDate));
+    $('#health-paste-btn', box).addEventListener('click', () => pasteHealth(view));
+    $('#health-close', box).addEventListener('click', () => closeHealth(view));
     return;
   }
   if (lastImport && lastImport.date === currentDate) {
@@ -562,9 +620,11 @@ function renderSettings(view) {
 
     <section class="card">
       <h2>Apple Zdravie</h2>
-      <p class="muted" style="margin:0;font-size:14px">Spusti skratku <b>Makrá zo Zdravia</b> (napr. Akčným tlačidlom),
-        potom v sekcii Deň ťukni <b>Zo Zdravia</b> → <b>Vložiť</b>. Načítajú sa kalórie a makrá z Kalorických tabuliek.
-        V Zdraví musí byť jednotka energie <b>kcal</b>. Návod: súbor NAVOD-SKRATKA.md.</p>
+      <p class="muted" style="margin:0 0 12px;font-size:14px">V sekcii Deň ťukni <b>Nahrať zo Zdravia</b>: appka spustí
+        skratku, tá prečíta kalórie a makrá z Kalorických tabuliek a po návrate ich vložíš. V Zdraví musí byť jednotka
+        energie <b>kcal</b>. <a href="https://github.com/matusmelek-maker/makra_app/blob/main/NAVOD-SKRATKA.md" target="_blank" rel="noopener">Návod na skratku</a></p>
+      <div class="field"><label for="s-shortcut">Názov skratky (presne ako v appke Skratky)</label>
+        <input id="s-shortcut" type="text" value="${esc(s.shortcutName)}" style="padding-right:12px"></div>
     </section>
 
     <section class="card">
@@ -589,6 +649,7 @@ function renderSettings(view) {
 
   const bind = (id, fn) => $('#' + id, view).addEventListener('input', (e) => { fn(e.target.value); save(); });
   bind('s-start', (v) => v && (s.startDate = v));
+  bind('s-shortcut', (v) => { s.shortcutName = v.trim() || 'Makrá zo Zdravia'; });
   bind('s-weight', (v) => { const n = parseNum(v); if (n) s.startWeight = n; });
   bind('s-goal', (v) => {
     const n = parseNum(v);

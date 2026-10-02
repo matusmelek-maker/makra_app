@@ -1,70 +1,94 @@
-# Skratka „Makrá zo Zdravia“ (iPhone)
+# Skratka „Makrá zo Zdravia“ – návod krok za krokom (iPhone)
 
-Kalorické tabuľky zapisujú jedlo do Apple Zdravia. Skratka prečíta dnešné kalórie a makrá a skopíruje ich do schránky.
-Potom ich jedným ťuknutím vložíš do appky Makrá.
+**Čo robí:** appka Makrá jej pošle dátum, skratka prečíta zo Zdravia kalórie a makrá
+(tie tam zapisujú Kalorické tabuľky) a skopíruje ich. Ty ich potom v appke vložíš.
 
-> Názvy akcií sú po slovensky; v zátvorke je anglický názov. Ak nejakú nevieš nájsť,
-> v Skratkách hľadaj slovo **Zdravie** / **Health**.
+Vytvára sa **raz**, cca 10 minút. Potom ju už len spúšťaš tlačidlom v appke.
 
-## 0. Jednorazová príprava v Zdraví
-**Zdravie → Prehľadávať → Výživa → Energia v potrave** → úplne dole **Jednotka → kcal** (nie kJ).
-Tam isto skontroluj, že v **Zdroje dát a prístup** sú Kalorické tabuľky povolené pre zápis.
+> Názvy sú po slovensky, v zátvorke po anglicky. Akciu vždy nájdeš tak, že dole ťukneš na
+> **Hľadať v akciách** a napíšeš prvé slovo (napr. „zdrav“, „štatist“, „slovník“).
 
-## 1. Vytvorenie skratky
-Appka **Skratky → +** → pomenuj ju **Makrá zo Zdravia**. Pridaj tieto akcie v tomto poradí:
+---
 
-**Kalórie**
-1. **Nájsť zdravotné vzorky** (*Find Health Samples*)
-   - ťukni na typ → **Energia v potrave** (*Dietary Energy*)
-   - **Pridať filter** → **Dátum začiatku** · **je dnes** (*Start Date is Today*)
-   - Limit nechaj vypnutý
-2. **Vypočítať štatistiku** (*Calculate Statistics*) → **Súčet** (*Sum*) zo **Zdravotných vzoriek**
-   - výsledok si premenuj na **kcal** (ťukni na výsledok akcie → *Premenovať*)
+## Krok 0 – príprava v Zdraví (raz)
+1. Otvor **Zdravie** → **Prehľadávať** → **Výživa** → **Energia v potrave**.
+2. Úplne dole: **Jednotka** → vyber **kcal**.
 
-**Makrá**: rovnaké dve akcie ešte 4×. Tip: podrž akcie 1–2 → *Duplikovať* a zmeň iba typ.
+---
+
+## Krok 1 – nová skratka
+1. Otvor appku **Skratky** → vpravo hore **+**.
+2. Hore ťukni na názov → **Premenovať** → napíš presne: **Makrá zo Zdravia** → Hotovo.
+
+---
+
+## Krok 2 – dátum z appky
+3. Pridaj akciu **Získať dátumy zo vstupu** (*Get Dates from Input*).
+   Ťukni na modré slovo vo vnútri akcie → vyber **Vstup skratky** (*Shortcut Input*).
+4. Pridaj akciu **Upraviť dátum** (*Adjust Date*).
+   Nastav: **Pridať** · **1** · **deň** · k **Dátumy** (výsledok z akcie 3).
+
+---
+
+## Krok 3 – kalórie
+5. Pridaj **Nájsť zdravotné vzorky** (*Find Health Samples*).
+   - Ťukni na typ → **Energia v potrave** (*Dietary Energy*).
+   - **Pridať filter** → **Dátum začiatku** → podmienka **je medzi** (*is between*).
+   - Prvý dátum: podrž/ťukni → **Vybrať premennú** → **Dátumy** (akcia 3).
+   - Druhý dátum: **Vybrať premennú** → **Upravený dátum** (akcia 4).
+6. Pridaj **Vypočítať štatistiku** (*Calculate Statistics*) → **Súčet** (*Sum*) zo **Zdravotných vzoriek**.
+   - Ťukni na výsledok tejto akcie (bublina **Štatistika**) → **Premenovať** → **kcal**.
+
+## Krok 4 – makrá (to isté 4×)
+Podrž akciu 5 → **Duplikovať**, potom podrž akciu 6 → **Duplikovať** a presuň ju pod kópiu.
+V kópii zmeň **len typ** a premenuj výsledok. Takto 4×:
 
 | typ vzorky | premenuj výsledok na |
 |---|---|
-| Sacharidy (*Carbohydrates*) | carbs |
-| Bielkoviny (*Protein*) | protein |
-| Tuky celkom (*Total Fat*) | fat |
-| Vláknina (*Fiber*) | fiber |
+| Sacharidy (*Carbohydrates*) | **carbs** |
+| Bielkoviny (*Protein*) | **protein** |
+| Tuky celkom (*Total Fat*) | **fat** |
+| Vláknina (*Fiber*) | **fiber** |
 
-**Dátum**
+---
 
-3. **Formátovať dátum** (*Format Date*): **Aktuálny dátum**, formát **Vlastný** → `yyyy-MM-dd`
+## Krok 5 – zbalenie a kopírovanie
+7. Pridaj **Slovník** (*Dictionary*). Ťukaj **Pridať novú položku** a vyplň (kľúče malými písmenami):
 
-**Zostavenie a kopírovanie**
-
-4. **Slovník** (*Dictionary*): pridaj položky (kľúče musia byť presne takto, malými písmenami):
-
-   | kľúč | typ | hodnota |
+   | typ položky | kľúč | hodnota |
    |---|---|---|
-   | app | Text | `makra-zdravie` |
-   | date | Text | *Formátovaný dátum* |
-   | kcal | Číslo | *kcal* |
-   | carbs | Číslo | *carbs* |
-   | protein | Číslo | *protein* |
-   | fat | Číslo | *fat* |
-   | fiber | Číslo | *fiber* |
+   | Text | `app` | napíš `makra-zdravie` |
+   | Text | `date` | premenná **Vstup skratky** |
+   | Číslo | `kcal` | premenná **kcal** |
+   | Číslo | `carbs` | premenná **carbs** |
+   | Číslo | `protein` | premenná **protein** |
+   | Číslo | `fat` | premenná **fat** |
+   | Číslo | `fiber` | premenná **fiber** |
 
-5. **Kopírovať do schránky** (*Copy to Clipboard*): **Slovník**
-6. *(voliteľné)* **Zobraziť oznámenie**: `Skopírované – otvor Makrá a ťukni Zo Zdravia`
+8. Pridaj **Kopírovať do schránky** (*Copy to Clipboard*) → vstup **Slovník**.
+9. *(voliteľné)* **Zobraziť oznámenie**: `Hotovo – vráť sa do Makrá`
 
-## 2. Spúšťanie jedným tlačidlom
-- **Akčné tlačidlo** (iPhone 16 Pro): Nastavenia → Akčné tlačidlo → **Skratka** → *Makrá zo Zdravia*
-- alebo widget Skratky na ploche
-- alebo Nastavenia → Prístupnosť → Dotyk → **Ťuknutie na zadnú stranu**
+Hotovo, skratka je uložená automaticky.
 
-## 3. Použitie
-1. Spusti skratku (prvýkrát sa opýta na prístup k Zdraviu → *Povoliť*).
-2. Otvor **Makrá** → **Deň** → **Zo Zdravia** → iPhone ukáže bublinu **Vložiť** → ťukni.
-3. Kalórie a makrá sa vyplnia (tlačidlo **Vrátiť** to zruší). Kroky a posilku dopíšeš ako doteraz.
+---
 
-Skratku môžeš spustiť aj viackrát za deň – vždy prepíše jedlo za daný deň aktuálnym súčtom.
+## Ako to potom používaš
+1. V appke **Makrá** → **Deň** → **Nahrať zo Zdravia**.
+2. Dátum je dnešný – ak chceš iný deň, zmeň ho.
+3. Ťukni **1. Načítať zo Zdravia** → otvorí sa Skratky a skratka prebehne
+   (prvýkrát sa opýta na prístup k Zdraviu → **Povoliť všetko**).
+4. Vráť sa do Makrá (vľavo hore **◀ Makrá** alebo potiahnutím).
+5. Ťukni **2. Vložiť údaje** → **Vložiť**. Kalórie a makrá sú zapísané.
+
+Skratku spúšťaj **z appky**, nie priamo zo Skratiek – appka jej posiela dátum.
+Môžeš to spraviť aj viackrát za deň, vždy sa prepíše jedlo aktuálnym súčtom.
+
+---
 
 ## Keď niečo nesedí
-- **Hodnoty sú 0** – medzi akcie 1 a 2 vlož **Získať podrobnosti o zdravotnej vzorke → Hodnota**
-  (*Get Details of Health Sample → Value*) a štatistiku počítaj z nej.
-- **Appka hlási kJ** – v Zdraví prepni jednotku energie na kcal (krok 0).
-- **„V schránke nie sú údaje“** – skratka sa nespustila celá, alebo si medzitým skopíroval niečo iné.
+- **Vychádzajú nuly** – medzi akciu 5 a 6 vlož **Získať podrobnosti o zdravotnej vzorke → Hodnota**
+  (*Get Details of Health Samples → Value*) a štatistiku počítaj z nej (pre každé makro).
+- **Appka hlási kJ** – v Zdraví prepni jednotku na kcal (krok 0).
+- **„V schránke nie sú údaje“** – skratka neprebehla celá. Otvor ju v Skratkách a pozri, pri ktorej akcii je chyba.
+- **Skratka sa nespustí** – názov musí byť presne rovnaký ako v appke Makrá → Nastavenia → *Názov skratky*.
+- Kedykoľvek mi pošli screenshot skratky a pozriem, čo je zle.

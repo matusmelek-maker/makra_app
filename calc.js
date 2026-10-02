@@ -186,6 +186,7 @@ export function defaultData() {
       goalFatKg: 10,
       stepCoef: [{ from: t, value: 0.000595 }],
       targets: { carbs: 110, protein: 140, fat: 70, fiber: 25 },
+      shortcutName: 'Makrá zo Zdravia',
     },
     days: {},
     measurements: [],

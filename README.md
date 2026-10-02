@@ -11,7 +11,8 @@ Beží zadarmo cez GitHub Pages, funguje offline a dá sa pridať na plochu tele
 - Bazál a koeficient krokov sa dajú meniť **od dátumu** (staré dni sa neprepočítajú)
 
 ## Jedlo z Kalorických tabuliek (iPhone)
-Kalorické tabuľky → Apple Zdravie → skratka „Makrá zo Zdravia“ → schránka → v appke **Zo Zdravia**.
+V appke **Deň → Nahrať zo Zdravia**: appka spustí skratku „Makrá zo Zdravia“ s dátumom, tá prečíta Zdravie
+(Kalorické tabuľky) a skopíruje údaje, po návrate ich appka vloží.
 Návod: [NAVOD-SKRATKA.md](NAVOD-SKRATKA.md)
 
 ## Dáta
