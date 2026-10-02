@@ -8,13 +8,35 @@ const KEYS = {
   fat: ['fat', 'tuky'],
   fiber: ['fiber', 'vlaknina', 'vláknina'],
 };
+const KJ_PER_KCAL = 4.184;
 
-// Skratky môžu poslať číslo aj text so slovenskou čiarkou ("12,5") či medzerou ("2 140")
+// Skratky môžu poslať číslo, text so slovenským formátom ("2 140,5") aj s jednotkou ("2 140 kcal", "8 950 kJ"),
+// prípadne zoznam hodnôt. Vráti { n, kj } alebo undefined.
 function toNum(v) {
-  if (typeof v === 'number') return Number.isFinite(v) ? v : undefined;
+  if (typeof v === 'number') return Number.isFinite(v) ? { n: v, kj: false } : undefined;
+  if (Array.isArray(v)) {
+    const parts = v.map(toNum).filter(Boolean);
+    return parts.length ? { n: parts.reduce((s, p) => s + p.n, 0), kj: parts.some((p) => p.kj) } : undefined;
+  }
+  if (v && typeof v === 'object') {
+    const inner = ['value', 'Value', 'magnitude', 'quantity'].map((k) => v[k]).find((x) => x !== undefined);
+    const r = toNum(inner);
+    if (r && /kj/i.test(String(v.unit ?? v.Unit ?? ''))) r.kj = true;
+    return r;
+  }
   if (typeof v !== 'string') return undefined;
-  const n = Number(v.replace(/\s/g, '').replace(',', '.'));
-  return v.trim() && Number.isFinite(n) ? n : undefined;
+  const s = v.replace(/[\s\u00a0\u202f]/g, '');
+  const m = s.match(/-?\d[\d.,]*/);
+  if (!m) return undefined;
+  let num = m[0];
+  if (num.includes(',') && num.includes('.')) {
+    // posledný oddeľovač je desatinný, ten prvý sú tisícky
+    num = num.lastIndexOf(',') > num.lastIndexOf('.') ? num.replace(/\./g, '').replace(',', '.') : num.replace(/,/g, '');
+  } else {
+    num = num.replace(',', '.');
+  }
+  const n = Number(num);
+  return Number.isFinite(n) ? { n, kj: /kj/i.test(s) } : undefined;
 }
 
 function normDate(v) {
@@ -27,7 +49,7 @@ function normDate(v) {
   return undefined;
 }
 
-// Vráti { date?, values: {kcal, carbs, protein, fat, fiber} } alebo hodí chybu so slovenskou správou
+// Vráti { date?, values: {kcal, carbs, protein, fat, fiber}, raw } alebo hodí chybu so slovenskou správou
 export function parseHealthPayload(text) {
   let obj;
   try {
@@ -40,13 +62,14 @@ export function parseHealthPayload(text) {
 
   const values = {};
   for (const [key, aliases] of Object.entries(KEYS)) {
-    const raw = aliases.map((a) => lower[a]).find((v) => v !== undefined);
-    const n = toNum(raw);
-    if (n !== undefined && n >= 0) values[key] = key === 'kcal' ? Math.round(n) : Math.round(n * 10) / 10;
+    const r = toNum(aliases.map((a) => lower[a]).find((v) => v !== undefined));
+    if (!r || r.n < 0) continue;
+    if (key === 'kcal') values.kcal = Math.round(r.kj ? r.n / KJ_PER_KCAL : r.n);
+    else values[key] = Math.round(r.n * 10) / 10;
   }
   if (!Object.keys(values).length) throw new Error('V údajoch chýbajú kalórie aj makrá.');
   if (!Object.values(values).some((v) => v > 0)) throw new Error('V Zdraví zatiaľ nie je za tento deň zapísané žiadne jedlo.');
   if (values.kcal > 15000) throw new Error('Kalórie vyzerajú ako kJ – v Zdraví nastav jednotku energie na kcal.');
 
-  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values };
+  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj };
 }

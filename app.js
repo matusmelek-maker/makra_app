@@ -218,7 +218,7 @@ function applyHealth(text, view) {
   try {
     p = parseHealthPayload(text);
   } catch (e) {
-    renderHealthBox(view, { error: e.message, paste: true });
+    renderHealthBox(view, { error: e.message, paste: true, raw: text });
     return;
   }
   const date = p.date || pendingHealth() || currentDate;
@@ -227,7 +227,7 @@ function applyHealth(text, view) {
   save(true);
   setPendingHealth(null);
   healthPanelOpen = false;
-  lastImport = { date, prev, values: p.values };
+  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1) };
   currentDate = date;
   renderDay(view);
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
@@ -244,12 +244,20 @@ function closeHealth(view) {
   renderHealthBox(view);
 }
 
-function renderHealthBox(view, { error, paste } = {}) {
+// Čo presne poslala skratka – pomáha pri ladení skratky
+function rawDetails(raw) {
+  if (!raw) return '';
+  const txt = String(raw).slice(0, 1500);
+  return `<details style="margin-top:8px"><summary>▸ Čo prišlo zo skratky</summary>
+    <pre style="white-space:pre-wrap;word-break:break-all;font-size:12px;margin:6px 0 0">${esc(txt)}</pre></details>`;
+}
+
+function renderHealthBox(view, { error, paste, raw } = {}) {
   const box = $('#health-box', view);
   if (!box) return;
   if (error || paste) {
     box.innerHTML = `<div class="callout ${error ? 'bg-bad' : 'bg-none'}" style="margin:0 0 12px">
-      ${error ? `<div style="margin-bottom:8px">${esc(error)}</div>` : ''}
+      ${error ? `<div style="margin-bottom:8px">${esc(error)}</div>${rawDetails(raw)}` : ''}
       <div class="field"><label for="health-paste" style="color:inherit">Podrž prst v poli a daj <b>Vložiť</b>:</label>
         <textarea id="health-paste" rows="2" placeholder='{"kcal": …}'></textarea></div>
       <div class="btn-row" style="margin-top:8px"><button class="btn small secondary" id="health-cancel">Zrušiť</button></div>
@@ -285,9 +293,14 @@ function renderHealthBox(view, { error, paste } = {}) {
       v.fat !== undefined && `T ${fmt(v.fat)}`,
       v.fiber !== undefined && `V ${fmt(v.fiber)} g`,
     ].filter(Boolean).join(' · ');
-    box.innerHTML = `<div class="callout bg-good" style="margin:0 0 12px;display:flex;gap:8px;align-items:center;justify-content:space-between">
-      <span>Zo Zdravia: <b class="num">${parts}</b></span>
-      <button class="btn small secondary" id="health-undo">Vrátiť</button></div>`;
+    const noKcal = v.kcal === undefined;
+    box.innerHTML = `<div class="callout ${noKcal ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
+      <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
+        <span>Zo Zdravia: <b class="num">${parts}</b></span>
+        <button class="btn small secondary" id="health-undo">Vrátiť</button></div>
+      ${noKcal ? '<div style="margin-top:8px">Kalórie neprišli – pozri nižšie, čo poslala skratka.</div>' : ''}
+      ${rawDetails(lastImport.raw)}
+    </div>`;
     $('#health-undo', box).addEventListener('click', () => {
       if (lastImport.prev) data.days[lastImport.date] = lastImport.prev;
       else delete data.days[lastImport.date];
