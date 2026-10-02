@@ -1,5 +1,6 @@
 import * as C from './calc.js';
 import { parseHealthPayload } from './health.js';
+import * as Cloud from './cloud.js';
 
 const STORE_KEY = 'makra-data-v1';
 const BACKUP_KEY = 'makra-last-backup';
@@ -52,9 +53,35 @@ function save(now = false) {
   clearTimeout(saveTimer);
   if (now) flush();
   else saveTimer = setTimeout(flush, 300);
+  scheduleCloud();
 }
 window.addEventListener('pagehide', flush);
-document.addEventListener('visibilitychange', () => document.hidden && flush());
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) return;
+  flush();
+  if (cloudPending) syncCloud({ keepalive: true }); // pri odchode z appky pošli zálohu hneď
+});
+
+// ---------- automatická záloha na GitHub ----------
+let cloudTimer;
+let cloudPending = false;
+function scheduleCloud() {
+  if (!Cloud.cloudEnabled()) return;
+  cloudPending = true;
+  clearTimeout(cloudTimer);
+  cloudTimer = setTimeout(() => syncCloud(), 90e3); // najviac raz za 1,5 min počas písania
+}
+async function syncCloud(opts = {}) {
+  clearTimeout(cloudTimer);
+  if (!Cloud.cloudEnabled()) return { ok: false };
+  flush();
+  cloudPending = false;
+  const r = await Cloud.pushBackup(data, opts);
+  if (r.ok && !r.skipped) localStorage.setItem(BACKUP_KEY, new Date().toISOString());
+  if (!r.ok && r.status !== 0) cloudPending = r.status !== -2;
+  if (tab === 'settings') renderCloudStatus();
+  return r;
+}
 
 let data = load();
 let tab = 'day';
@@ -732,6 +759,8 @@ function renderSettings(view) {
         <input id="s-shortcut" type="text" value="${esc(s.shortcutName)}" style="padding-right:12px"></div>
     </section>
 
+    <section class="card" id="cloud-card"></section>
+
     <section class="card">
       <h2>Záloha dát</h2>
       <p class="muted" style="margin-top:0;font-size:14px">Dáta sú uložené iba v tomto telefóne/prehliadači.
@@ -827,6 +856,7 @@ function renderSettings(view) {
   $('#import', view).addEventListener('click', () => $('#import-file').click());
   $('#import-file', view).addEventListener('change', importData);
   $('#undo-import', view)?.addEventListener('click', undoImport);
+  renderCloud($('#cloud-card', view));
   $('#wipe', view).addEventListener('click', () => {
     if (!confirm('Naozaj vymazať všetky dáta? Najprv si stiahni zálohu!')) return;
     if (!confirm('Posledné potvrdenie – vymazať?')) return;
@@ -890,35 +920,111 @@ async function importData(e) {
   const f = e.target.files[0];
   e.target.value = '';
   if (!f) return;
+  let d;
   try {
-    const d = JSON.parse(await f.text());
+    d = JSON.parse(await f.text());
     if (d.app !== 'makra' || !d.days || !d.settings) throw new Error('format');
-    const n = Object.keys(d.days).length;
-    const empty = !Object.keys(data.days).length && !data.measurements.length;
-    const added = Object.keys(d.days).filter((k) => !data.days[k]).length;
-    const both = n - added;
-    const msg = empty
-      ? `Nahrať zálohu (${n} dní, ${(d.measurements || []).length} meraní)?`
-      : `Zlúčiť zálohu s dátami v telefóne?\n\n• pridá sa ${added} ${daysWord(added)}, ktoré v telefóne chýbajú\n` +
-        (both ? `• ${both} ${daysWord(both)} už máš – pri nich sa doplnia len prázdne polia\n` : '') +
-        '• nič sa nevymaže ani neprepíše';
-    if (!confirm(msg)) return;
-    const bak = migrate(d);
-    const takeSettings = !empty && JSON.stringify(bak.settings) !== JSON.stringify(data.settings) &&
-      confirm(`Prevziať aj nastavenia zo zálohy?\n\nV zálohe: bazál ${fmt(C.valueAt(bak.settings.bazal, C.today()))} kcal, ` +
-        `počiatočná váha ${fmt(bak.settings.startWeight, 1)} kg, cieľ ${fmt(bak.settings.goalFatKg, 1)} kg, od ${dmy(bak.settings.startDate)}.\n` +
-        `Teraz: bazál ${fmt(C.valueAt(data.settings.bazal, C.today()))} kcal, váha ${fmt(data.settings.startWeight, 1)} kg, ` +
-        `cieľ ${fmt(data.settings.goalFatKg, 1)} kg, od ${dmy(data.settings.startDate)}.\n\nOK = zo zálohy, Zrušiť = nechať moje`);
-    flush();
-    try { localStorage.setItem(UNDO_IMPORT_KEY, JSON.stringify({ at: new Date().toISOString(), data })); } catch {}
-    data = empty ? bak : mergeBackup(data, bak);
-    if (takeSettings) data.settings = { ...bak.settings, shortcutName: data.settings.shortcutName };
-    save(true);
-    toast(empty ? `Nahraté: ${n} ${daysWord(n)}` : `Zlúčené: +${added} ${daysWord(added)}`);
-    render();
   } catch (err) {
     toast('Neplatný súbor zálohy');
+    return;
   }
+  applyBackup(d);
+}
+
+// Nahratie zálohy (zo súboru alebo z GitHubu): do prázdneho zariadenia celá, inak zlúčenie
+function applyBackup(d) {
+  const n = Object.keys(d.days).length;
+  const empty = !Object.keys(data.days).length && !data.measurements.length;
+  const added = Object.keys(d.days).filter((k) => !data.days[k]).length;
+  const both = n - added;
+  const msg = empty
+    ? `Nahrať zálohu (${n} dní, ${(d.measurements || []).length} meraní)?`
+    : `Zlúčiť zálohu s dátami v telefóne?\n\n• pridá sa ${added} ${daysWord(added)}, ktoré v telefóne chýbajú\n` +
+      (both ? `• ${both} ${daysWord(both)} už máš – pri nich sa doplnia len prázdne polia\n` : '') +
+      '• nič sa nevymaže ani neprepíše';
+  if (!confirm(msg)) return;
+  const bak = migrate(d);
+  const takeSettings = !empty && JSON.stringify(bak.settings) !== JSON.stringify(data.settings) &&
+    confirm(`Prevziať aj nastavenia zo zálohy?\n\nV zálohe: bazál ${fmt(C.valueAt(bak.settings.bazal, C.today()))} kcal, ` +
+      `počiatočná váha ${fmt(bak.settings.startWeight, 1)} kg, cieľ ${fmt(bak.settings.goalFatKg, 1)} kg, od ${dmy(bak.settings.startDate)}.\n` +
+      `Teraz: bazál ${fmt(C.valueAt(data.settings.bazal, C.today()))} kcal, váha ${fmt(data.settings.startWeight, 1)} kg, ` +
+      `cieľ ${fmt(data.settings.goalFatKg, 1)} kg, od ${dmy(data.settings.startDate)}.\n\nOK = zo zálohy, Zrušiť = nechať moje`);
+  flush();
+  try { localStorage.setItem(UNDO_IMPORT_KEY, JSON.stringify({ at: new Date().toISOString(), data })); } catch {}
+  data = empty ? bak : mergeBackup(data, bak);
+  if (takeSettings) data.settings = { ...bak.settings, shortcutName: data.settings.shortcutName };
+  save(true);
+  toast(empty ? `Nahraté: ${n} ${daysWord(n)}` : `Zlúčené: +${added} ${daysWord(added)}`);
+  render();
+}
+
+function renderCloud(card) {
+  const on = Cloud.cloudEnabled();
+  const cfg = Cloud.cloudConfig();
+  card.innerHTML = `
+    <h2>Automatická záloha <small>GitHub</small></h2>
+    <p class="muted" style="margin-top:0;font-size:14px">Appka po každej zmene sama pošle zálohu do tvojho súkromného
+      repozitára na GitHube. Ostane tam aj história všetkých verzií. Token je uložený len v tomto zariadení.
+      <a href="https://github.com/matusmelek-maker/makra_app/blob/main/NAVOD-ZALOHA.md" target="_blank" rel="noopener">Návod</a></p>
+    <div id="cloud-status" style="font-size:14px;margin-bottom:12px"></div>
+    ${on ? `
+      <div class="btn-row">
+        <button class="btn" id="cloud-now">Zálohovať teraz</button>
+        <button class="btn secondary" id="cloud-pull">Obnoviť z GitHubu</button>
+      </div>
+      <div class="btn-row" style="margin-top:8px"><button class="btn small danger" id="cloud-off">Odpojiť</button></div>` : `
+      <div class="field"><label for="c-repo">Repozitár</label>
+        <input id="c-repo" type="text" value="${esc(cfg.repo || Cloud.DEFAULT_REPO)}" autocapitalize="off" autocorrect="off" spellcheck="false" style="padding-right:12px"></div>
+      <div class="field"><label for="c-token">Token (github_pat_…)</label>
+        <input id="c-token" type="password" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" style="padding-right:12px"></div>
+      <div class="btn-row"><button class="btn" id="cloud-save">Uložiť a zálohovať teraz</button></div>`}`;
+  renderCloudStatus();
+
+  $('#cloud-save', card)?.addEventListener('click', async () => {
+    const repo = $('#c-repo', card).value.trim().replace(/^https?:\/\/github\.com\//, '').replace(/\.git$|\/$/g, '');
+    const token = $('#c-token', card).value.trim();
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo) || !token) return toast('Vyplň repozitár aj token');
+    Cloud.setCloudConfig({ repo, token });
+    renderCloud(card);
+    $('#cloud-status', card).textContent = 'Skúšam zálohovať…';
+    const r = await syncCloud({ force: true });
+    toast(r.ok ? 'Záloha na GitHube funguje ✓' : 'Zálohovanie zlyhalo – pozri správu');
+  });
+  $('#cloud-now', card)?.addEventListener('click', async () => {
+    $('#cloud-status', card).textContent = 'Zálohujem…';
+    const r = await syncCloud({ force: true });
+    toast(r.ok ? 'Zálohované na GitHub ✓' : 'Zálohovanie zlyhalo');
+  });
+  $('#cloud-pull', card)?.addEventListener('click', async () => {
+    try {
+      const d = await Cloud.pullBackup();
+      if (d.app !== 'makra' || !d.days || !d.settings) throw new Error('Záloha na GitHube má neplatný formát.');
+      applyBackup(d);
+    } catch (e) {
+      toast(e.message || 'Obnovenie zlyhalo');
+    }
+  });
+  $('#cloud-off', card)?.addEventListener('click', () => {
+    if (!confirm('Odpojiť automatickú zálohu? Token sa z tohto zariadenia vymaže, záloha na GitHube ostane.')) return;
+    Cloud.clearCloud();
+    renderCloud(card);
+  });
+}
+
+function renderCloudStatus() {
+  const el = $('#cloud-status');
+  if (!el) return;
+  if (!Cloud.cloudEnabled()) {
+    el.innerHTML = '<span class="muted">Vypnutá – vlož token a zapni ju.</span>';
+    return;
+  }
+  const st = Cloud.cloudState();
+  const when = (s) => new Date(s).toLocaleString('sk-SK', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' });
+  const ok = st.at ? `<span class="lvl-good">✓ Posledná záloha ${when(st.at)} (${st.days} ${daysWord(st.days)})</span>` : '';
+  const err = st.paused
+    ? '<div class="lvl-ok" style="margin-top:4px">V telefóne je oveľa menej dní ako v poslednej zálohe, preto som automatické zálohovanie zastavil, aby sa záloha neprepísala. Ak je to v poriadku, ťukni Zálohovať teraz.</div>'
+    : st.error ? `<div class="lvl-bad" style="margin-top:4px">${esc(st.error)}</div>` : '';
+  el.innerHTML = (ok || '<span class="muted">Zatiaľ bez zálohy.</span>') + err;
 }
 
 // ---------- start ----------
@@ -927,3 +1033,10 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 render();
+// po spustení dobehni zálohu, ak minule nevyšla; trvalé chyby ukáž
+if (Cloud.cloudEnabled()) {
+  setTimeout(async () => {
+    const r = await syncCloud();
+    if (!r.ok && [401, 403, 404].includes(r.status)) toast('Záloha na GitHub nefunguje – pozri Nastavenia');
+  }, 4000);
+}

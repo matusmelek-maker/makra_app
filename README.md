@@ -16,7 +16,9 @@ V appke **Deň → Nahrať zo Zdravia**: appka spustí skratku „Makrá zo Zdra
 Návod: [NAVOD-SKRATKA.md](NAVOD-SKRATKA.md)
 
 ## Dáta
-Ukladajú sa iba v telefóne (localStorage). Zálohu stiahneš v **Nastavenia → Stiahnuť zálohu** (JSON).
+Ukladajú sa v telefóne (localStorage). Zálohu stiahneš v **Nastavenia → Stiahnuť zálohu** (JSON).
+Automatická záloha do súkromného GitHub repozitára (s históriou verzií): [NAVOD-ZALOHA.md](NAVOD-ZALOHA.md).
+Nahratie zálohy dáta zlúči, nič nemaže.
 Prevod starého Excelu: `python tools/excel_to_json.py "kalorie.xlsx" moje-data/makra-import.json`
 a potom v appke **Nahrať zálohu**.
 

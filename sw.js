@@ -1,6 +1,6 @@
 // Offline cache. Pri každej zmene súborov zvýš VERSION.
-const VERSION = 'makra-v14';
-const FILES = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'health.js', 'manifest.webmanifest',
+const VERSION = 'makra-v15';
+const FILES = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'health.js', 'cloud.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -13,7 +13,8 @@ self.addEventListener('activate', (e) => {
 });
 // Najprv sieť (aby sa aktualizácie prejavili hneď), bez siete z cache
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  // len súbory appky – volania na GitHub API (so zálohou a tokenom) sa nesmú cachovať
+  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
