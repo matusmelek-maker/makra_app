@@ -227,7 +227,7 @@ function applyHealth(text, view) {
   save(true);
   setPendingHealth(null);
   healthPanelOpen = false;
-  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1) };
+  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero };
   currentDate = date;
   renderDay(view);
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
@@ -298,7 +298,9 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
       <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
         <span>Zo Zdravia: <b class="num">${parts}</b></span>
         <button class="btn small secondary" id="health-undo">Vrátiť</button></div>
-      ${noKcal ? '<div style="margin-top:8px">Kalórie neprišli – pozri nižšie, čo poslala skratka.</div>' : ''}
+      ${noKcal ? `<div style="margin-top:8px">${lastImport.kcalZero
+        ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: <b class="num">${fmt(C.macroKcal(lastImport.values))} kcal</b>.`
+        : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.'}</div>` : ''}
       ${rawDetails(lastImport.raw)}
     </div>`;
     $('#health-undo', box).addEventListener('click', () => {

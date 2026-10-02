@@ -36,12 +36,14 @@ Vytvára sa **raz**, cca 10 minút. Potom ju už len spúšťaš tlačidlom v ap
    - **Pridať filter** → **Dátum začiatku** → podmienka **je medzi** (*is between*).
    - Prvý dátum: podrž/ťukni → **Vybrať premennú** → **Dátumy** (akcia 3).
    - Druhý dátum: **Vybrať premennú** → **Upravený dátum** (akcia 4).
-6. Pridaj **Vypočítať štatistiku** (*Calculate Statistics*) → **Súčet** (*Sum*) zo **Zdravotných vzoriek**.
+6. Pridaj **Získať podrobnosti o zdravotnej vzorke** (*Get Details of Health Sample*) → **Hodnota** (*Value*)
+   zo **Zdravotných vzoriek**. Bez tohto kroku prídu kalórie ako 0 (pri gramoch to netreba).
+7. Pridaj **Vypočítať štatistiku** (*Calculate Statistics*) → **Súčet** (*Sum*) z **Hodnota** (výsledok akcie 6).
    - Ťukni na výsledok tejto akcie (bublina **Štatistika**) → **Premenovať** → **kcal**.
 
 ## Krok 4 – makrá (to isté 4×)
-Podrž akciu 5 → **Duplikovať**, potom podrž akciu 6 → **Duplikovať** a presuň ju pod kópiu.
-V kópii zmeň **len typ** a premenuj výsledok. Takto 4×:
+Pre každé makro pridaj **Nájsť zdravotné vzorky** (rovnaký filter dátumu ako pri kalóriách) a pod ňu
+**Vypočítať štatistiku → Súčet** zo **Zdravotných vzoriek** (tu krok „Hodnota“ netreba). Takto 4×:
 
 | typ vzorky | premenuj výsledok na |
 |---|---|
@@ -53,7 +55,7 @@ V kópii zmeň **len typ** a premenuj výsledok. Takto 4×:
 ---
 
 ## Krok 5 – zbalenie a kopírovanie
-7. Pridaj **Slovník** (*Dictionary*). Ťukaj **Pridať novú položku** a vyplň (kľúče malými písmenami):
+8. Pridaj **Slovník** (*Dictionary*). Ťukaj **Pridať novú položku** a vyplň (kľúče malými písmenami):
 
    | typ položky | kľúč | hodnota |
    |---|---|---|
@@ -65,8 +67,8 @@ V kópii zmeň **len typ** a premenuj výsledok. Takto 4×:
    | Číslo | `fat` | premenná **fat** |
    | Číslo | `fiber` | premenná **fiber** |
 
-8. Pridaj **Kopírovať do schránky** (*Copy to Clipboard*) → vstup **Slovník**.
-9. *(voliteľné)* **Zobraziť oznámenie**: `Hotovo – vráť sa do Makrá`
+9. Pridaj **Kopírovať do schránky** (*Copy to Clipboard*) → vstup **Slovník**.
+10. *(voliteľné)* **Zobraziť oznámenie**: `Hotovo – vráť sa do Makrá`
 
 Hotovo, skratka je uložená automaticky.
 
@@ -86,8 +88,10 @@ Môžeš to spraviť aj viackrát za deň, vždy sa prepíše jedlo aktuálnym s
 ---
 
 ## Keď niečo nesedí
-- **Vychádzajú nuly** – medzi akciu 5 a 6 vlož **Získať podrobnosti o zdravotnej vzorke → Hodnota**
-  (*Get Details of Health Samples → Value*) a štatistiku počítaj z nej (pre každé makro).
+- **Kalórie prichádzajú 0, makrá áno** – medzi „Nájsť zdravotné vzorky (Energia v potrave)“ a jej „Vypočítať
+  štatistiku“ vlož **Získať podrobnosti o zdravotnej vzorke → Hodnota** a v štatistike zmeň vstup na **Hodnota**.
+  Kým to neopravíš, appka kalórie dopočíta z makier.
+- **Aj makrá vychádzajú 0** – rovnaký krok **Hodnota** vlož aj pred štatistiky makier.
 - **Appka hlási kJ** – v Zdraví prepni jednotku na kcal (krok 0).
 - **„V schránke nie sú údaje“** – skratka neprebehla celá. Otvor ju v Skratkách a pozri, pri ktorej akcii je chyba.
 - **Skratka sa nespustí** – názov musí byť presne rovnaký ako v appke Makrá → Nastavenia → *Názov skratky*.

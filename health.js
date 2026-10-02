@@ -67,9 +67,13 @@ export function parseHealthPayload(text) {
     if (key === 'kcal') values.kcal = Math.round(r.kj ? r.n / KJ_PER_KCAL : r.n);
     else values[key] = Math.round(r.n * 10) / 10;
   }
+  // Skratka niekedy pošle energiu ako 0, hoci makrá prišli -> kalórie nechaj dopočítať z makier
+  const hasMacros = ['carbs', 'protein', 'fat'].some((k) => values[k] > 0);
+  const kcalZero = values.kcal === 0 && hasMacros;
+  if (kcalZero) delete values.kcal;
   if (!Object.keys(values).length) throw new Error('V údajoch chýbajú kalórie aj makrá.');
   if (!Object.values(values).some((v) => v > 0)) throw new Error('V Zdraví zatiaľ nie je za tento deň zapísané žiadne jedlo.');
   if (values.kcal > 15000) throw new Error('Kalórie vyzerajú ako kJ – v Zdraví nastav jednotku energie na kcal.');
 
-  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj };
+  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj, kcalZero };
 }
