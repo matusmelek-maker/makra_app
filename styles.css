@@ -16,6 +16,10 @@
   --ok-bg: #fdf4d6;
   --bad-bg: #fde6e6;
   --none-bg: #eef1f4;
+  --c-carbs: #e08a1e;
+  --c-protein: #7a55d6;
+  --c-fat: #1597ad;
+  --c-fiber: #3a9e55;
   --radius: 16px;
   --tabbar-h: 64px;
   color-scheme: light;
@@ -40,6 +44,10 @@
     --ok-bg: #3a3112;
     --bad-bg: #432020;
     --none-bg: #1e2833;
+    --c-carbs: #f2a645;
+    --c-protein: #9d82f0;
+    --c-fat: #3cc2d6;
+    --c-fiber: #5ccb7a;
     color-scheme: dark;
   }
 }
@@ -223,6 +231,35 @@ input[type=date] { padding-right: 12px; min-height: 48px; }
 
 /* ---- macro bars ---- */
 .macro { margin: 12px 0; }
+
+/* Jedlo a makrá: kruh + riadky */
+.food-top { display: grid; grid-template-columns: 124px 1fr; gap: 14px; align-items: center; margin-bottom: 12px; }
+.food-ring svg { width: 124px; height: 124px; display: block; }
+.food-ring circle { fill: none; }
+.food-ring .trk { stroke: var(--input); stroke-width: 11; }
+.food-ring .seg { stroke-width: 11; }
+.food-ring .ovr { stroke: var(--bad); stroke-width: 3.5; stroke-linecap: round; }
+.food-ring text { text-anchor: middle; dominant-baseline: middle; fill: var(--ink); }
+.food-ring .rb { font-size: 20px; font-weight: 700; }
+.food-ring .rs { font-size: 8.5px; fill: var(--muted); }
+.food-ring .rl { font-size: 8.5px; font-weight: 600; }
+.food-ring .rl.lvl-good { fill: var(--good); }
+.food-ring .rl.lvl-ok { fill: var(--ok); }
+.food-ring .rl.lvl-bad { fill: var(--bad); }
+.food-kcal .hint { min-height: 0; }
+.food-target { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+.mrows { display: grid; gap: 12px; }
+.mrow { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 6px 10px; align-items: center; }
+.mrow label { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mrow .field input { padding: 8px 28px 8px 10px; font-size: 17px; }
+.mrow .field .unit { right: 10px; }
+.mrow .mt { font-size: 14px; white-space: nowrap; text-align: right; min-width: 84px; }
+.mrow .bar { grid-column: 1 / -1; height: 7px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot-carbs { background: var(--c-carbs); }
+.dot-protein { background: var(--c-protein); }
+.dot-fat { background: var(--c-fat); }
+.dot-fiber { background: var(--c-fiber); }
 .macro .row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 4px; }
 .macro .row b { font-weight: 600; }
 .bar { height: 10px; border-radius: 999px; background: var(--input); overflow: hidden; position: relative; }

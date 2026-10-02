@@ -201,16 +201,28 @@ function renderDay(view) {
 
     <section class="card hero" id="hero"></section>
 
-    <section class="card">
-      <h2>Jedlo <button class="btn small secondary" id="from-health">Nahrať zo Zdravia</button></h2>
+    <section class="card" id="food">
+      <h2>Jedlo a makrá <button class="btn small secondary" id="from-health">Nahrať zo Zdravia</button></h2>
       <div id="health-box"></div>
-      <div class="fields">
-        ${field({ id: 'kcal', label: 'Zjedené kalórie', unit: 'kcal', value: day.kcal, cls: 'full', mode: 'numeric' })}
-        ${field({ id: 'carbs', label: 'Sacharidy', unit: 'g', value: day.carbs })}
-        ${field({ id: 'protein', label: 'Bielkoviny', unit: 'g', value: day.protein })}
-        ${field({ id: 'fat', label: 'Tuky', unit: 'g', value: day.fat })}
-        ${field({ id: 'fiber', label: 'Vláknina', unit: 'g', value: day.fiber })}
+      <div class="food-top">
+        <div class="food-ring" id="food-ring"></div>
+        <div class="food-kcal">
+          ${field({ id: 'kcal', label: 'Zjedené kalórie', unit: 'kcal', value: day.kcal, mode: 'numeric' })}
+          <div class="food-target" id="food-target"></div>
+        </div>
       </div>
+      <div class="mrows">
+        ${C.MACROS.map((m) => `
+        <div class="mrow">
+          <label for="${m}"><i class="dot dot-${m}"></i>${MACRO_LABEL[m]}</label>
+          <div class="field"><div class="wrap"><input id="${m}" name="${m}" type="text" inputmode="decimal" autocomplete="off"
+            value="${esc(inputVal(day[m]))}"><span class="unit">g</span></div></div>
+          <span class="mt num" id="mt-${m}"></span>
+          <div class="bar"><i id="mb-${m}"></i></div>
+        </div>`).join('')}
+      </div>
+      <div id="macro-advice" style="margin-top:14px"></div>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Cieľ makier nastavíš v sekcii <b>Cieľ → Môj plán makier</b>.</p>
     </section>
 
     <section class="card">
@@ -224,8 +236,6 @@ function renderDay(view) {
       </div>
       <div id="move-calc"></div>
     </section>
-
-    <section class="card" id="macros"></section>
 
     <section class="card">
       <h2>Poznámka</h2>
@@ -458,29 +468,64 @@ function updateDayComputed() {
     <div class="calc-line"><span class="muted">Kroky → kalórie <small>(${fmt(c.stepIndex, 4)} kcal/krok pri ${fmt(c.weight, 1)} kg)</small></span><b class="num">${fmt(c.stepKcal)} kcal</b></div>
     <div class="calc-line"><span class="muted">Výdaj pohybom spolu</span><b class="num">${fmt(c.burned)} kcal</b></div>`;
 
-  const bars = C.MACROS.map((m) => {
+  // jedlo a makrá v jednej karte: kruh s kalóriami + riadok na každé makro (políčka sa neprekresľujú, len čísla)
+  $('#food-ring').innerHTML = foodRing(c);
+  $('#food-target').innerHTML = `cieľ ${fmt(c.targetKcalBase)}${c.burned ? ` + výdaj ${fmt(c.burned)}` : ''}${c.targetTef >= 1 ? ` + trávenie ${fmt(c.targetTef)}` : ''}
+    = <b class="num">${fmt(c.targetKcalTotal)} kcal</b>`;
+  for (const m of C.MACROS) {
     const eaten = c.eatenMacro[m];
     const target = c.targets[m];
     const pct = target > 0 ? Math.min(100, (eaten / target) * 100) : 0;
     // nad cieľ: sacharidy a tuky červené (bielkoviny a vláknina navyše nevadia); chýba viac ako 5 %: žlté
     const over = eaten > target * 1.05 && m !== 'protein' && m !== 'fiber';
     const under = eaten < target * 0.95;
-    const diff = c.diff[m];
-    return `<div class="macro">
-      <div class="row"><b>${MACRO_LABEL[m]}</b><span class="num">${fmt(eaten, eaten % 1 ? 1 : 0)} / ${fmt(target)} g
-        <span class="${over ? 'lvl-bad' : under ? 'lvl-ok' : 'lvl-good'}">(${fmtSigned(diff)})</span></span></div>
-      <div class="bar"><i class="${over ? 'over' : under ? 'under' : ''}" style="width:${pct}%"></i></div>
-    </div>`;
-  }).join('');
+    $('#mt-' + m).innerHTML = `/ ${fmt(target)} g <span class="${over ? 'lvl-bad' : under ? 'lvl-ok' : 'lvl-good'}">(${fmtSigned(c.diff[m])})</span>`;
+    const bar = $('#mb-' + m);
+    bar.className = over ? 'over' : under ? 'under' : '';
+    bar.style.width = pct + '%';
+  }
   const a = macroAdvice(c);
-  $('#macros').innerHTML = `
-    <h2>Makrá <small>cieľ ${fmt(c.targetKcalBase)} kcal${c.burned ? ' + výdaj' : ''}${c.targetTef >= 1 ? ' + trávenie' : ''}${c.burned || c.targetTef >= 1 ? ' = ' + fmt(c.targetKcalTotal) + ' kcal' : ''}</small></h2>
-    ${bars}
-    <div class="callout bg-${a.level}">
+  $('#macro-advice').innerHTML = `<div class="callout bg-${a.level}" style="margin:0">
       ${a.lines.map((l, i) => `<div${i ? ' style="margin-top:6px"' : ''}>${l}</div>`).join('')}
       <div class="muted" style="font-size:13px;margin-top:6px">Sacharidy = ${fmt(c.baseTargets.carbs)} g + ${c.targetTef >= 1 ? '(výdaj pohybom + trávenie)' : 'výdaj pohybom'} / 4,1${c.extraKcal >= 1 ? ' − tuky a bielkoviny navyše / 4,1' : ''}</div>
-    </div>
-    <p class="muted" style="font-size:13px;margin:10px 0 0">Cieľ makier nastavíš v sekcii <b>Cieľ → Môj plán makier</b>.</p>`;
+    </div>`;
+}
+
+// Kruh: koľko z cieľa kalórií je zjedené, farebne rozdelené podľa makier; nad cieľ = červený vonkajší oblúk
+function foodRing(c) {
+  const R = 46;
+  const L = 2 * Math.PI * R;
+  const target = c.targetKcalTotal;
+  const eaten = c.eaten;
+  const fill = target > 0 ? Math.min(1, eaten / target) : 0;
+  const parts = C.MACROS.map((m) => [m, c.eatenMacro[m] * C.KCAL_PER_G[m]]);
+  const sum = parts.reduce((a, [, k]) => a + k, 0);
+  let off = 0;
+  let segs = '';
+  if (fill > 0 && sum > 0) {
+    for (const [m, k] of parts) {
+      const len = (fill * L * k) / sum;
+      if (len < 0.5) continue;
+      segs += `<circle class="seg" r="${R}" cx="60" cy="60" style="stroke:var(--c-${m})"
+        stroke-dasharray="${len} ${L - len}" stroke-dashoffset="${-off}"/>`;
+      off += len;
+    }
+  } else if (fill > 0) {
+    segs = `<circle class="seg" r="${R}" cx="60" cy="60" style="stroke:var(--accent)" stroke-dasharray="${fill * L} ${L}"/>`;
+  }
+  const over = eaten - target;
+  const R2 = 56;
+  const L2 = 2 * Math.PI * R2;
+  const ovr = over > 0 && target > 0
+    ? `<circle class="ovr" r="${R2}" cx="60" cy="60" stroke-dasharray="${Math.min(1, over / target) * L2} ${L2}"/>` : '';
+  const leftCls = over > 50 ? (c.balance < 0 ? 'lvl-ok' : 'lvl-bad') : 'lvl-good';
+  const leftTxt = eaten <= 0 ? 'nič zapísané' : over > 0 ? `+${fmt(over)} nad cieľ` : `zostáva ${fmt(-over)}`;
+  return `<svg viewBox="0 0 120 120" role="img" aria-label="Zjedené ${fmt(eaten)} z ${fmt(target)} kcal">
+    <g transform="rotate(-90 60 60)"><circle class="trk" r="${R}" cx="60" cy="60"/>${segs}${ovr}</g>
+    <text class="rb num" x="60" y="54">${fmt(eaten)}</text>
+    <text class="rs" x="60" y="69">z ${fmt(target)} kcal</text>
+    <text class="rl ${leftCls}" x="60" y="82">${leftTxt}</text>
+  </svg>`;
 }
 
 // Rozbor makier: koľko sacharidov ešte zostáva po odrátaní tukov/bielkovín navyše a čo chýba
