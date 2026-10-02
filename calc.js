@@ -85,7 +85,11 @@ export function computeDay(data, date) {
   // zapis makra
   const t = s.targets;
   const targetKcalBase = MACROS.reduce((sum, m) => sum + t[m] * KCAL_PER_G[m], 0); // H
-  const carbsTarget = t.carbs + burned / KCAL_PER_G.carbs; // S = N + I/4.1
+  // s trávením môžeš zjesť viac pri rovnakom deficite: jedlo × (1 − TEF) = cieľ + výdaj
+  const targetKcalTotal = (targetKcalBase + burned) / (1 - tefPct / 100); // J (+ trávenie)
+  const targetTef = targetKcalTotal - targetKcalBase - burned;
+  const carbsTarget = t.carbs + (burned + targetTef) / KCAL_PER_G.carbs; // S = N + I/4.1 (+ trávenie)
+  const bazalAt = valueAt(s.bazal, date);
   const hasMacros = MACROS.some((m) => day[m] !== undefined && day[m] !== '' && day[m] !== null);
   const eatenMacro = Object.fromEntries(MACROS.map((m) => [m, Number(day[m]) || 0]));
   const targets = { carbs: carbsTarget, protein: t.protein, fat: t.fat, fiber: t.fiber };
@@ -95,7 +99,8 @@ export function computeDay(data, date) {
     date, day, weight, stepCoef, stepIndex, steps, sportSteps, walkSteps, stepKcal, gym, sport, burned,
     eaten, kcalFromMacros: !day.kcal && eaten > 0, macroKcal: macroKcal(day),
     bazal, tef, tefPct, balance, hasData: eaten > 0 || burned > 0,
-    targetKcalBase, targetKcalTotal: burned ? targetKcalBase + burned : 0, // J
+    targetKcalBase, targetKcalTotal, targetTef,
+    plannedBalance: targetKcalBase - bazalAt, // deficit, keď zješ presne cieľ (napr. 1 729 − 2 028 = −299)
     carbsLeft: carbsTarget - eatenMacro.carbs, // R
     // tuky a bielkoviny nad cieľ zaberú časť kalórií určených na sacharidy
     extraKcal: ['fat', 'protein'].reduce((sum, m) => sum + Math.max(0, diff[m]) * KCAL_PER_G[m], 0),

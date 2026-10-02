@@ -433,11 +433,11 @@ function updateDayComputed() {
   }).join('');
   const a = macroAdvice(c);
   $('#macros').innerHTML = `
-    <h2>Makrá <small>cieľ ${fmt(c.targetKcalBase)} kcal + výdaj${c.burned ? ' = ' + fmt(c.targetKcalTotal) + ' kcal' : ''}</small></h2>
+    <h2>Makrá <small>cieľ ${fmt(c.targetKcalBase)} kcal${c.burned ? ' + výdaj' : ''}${c.targetTef >= 1 ? ' + trávenie' : ''}${c.burned || c.targetTef >= 1 ? ' = ' + fmt(c.targetKcalTotal) + ' kcal' : ''}</small></h2>
     ${bars}
     <div class="callout bg-${a.level}">
       ${a.lines.map((l, i) => `<div${i ? ' style="margin-top:6px"' : ''}>${l}</div>`).join('')}
-      <div class="muted" style="font-size:13px;margin-top:6px">Sacharidy = ${fmt(data.settings.targets.carbs)} g + výdaj pohybom / 4,1${c.extraKcal >= 1 ? ' − tuky a bielkoviny navyše / 4,1' : ''}</div>
+      <div class="muted" style="font-size:13px;margin-top:6px">Sacharidy = ${fmt(data.settings.targets.carbs)} g + ${c.targetTef >= 1 ? '(výdaj pohybom + trávenie)' : 'výdaj pohybom'} / 4,1${c.extraKcal >= 1 ? ' − tuky a bielkoviny navyše / 4,1' : ''}</div>
     </div>
     <details style="margin-top:12px">
       <summary>▸ Rýchly výpočet (odhad výdaja dopredu)</summary>
@@ -448,7 +448,8 @@ function updateDayComputed() {
     </details>`;
   $('#quick').addEventListener('input', (e) => {
     const v = parseNum(e.target.value);
-    $('#quick-out').textContent = v === undefined ? '—' : fmt(data.settings.targets.carbs + v / C.KCAL_PER_G.carbs) + ' g';
+    const total = v === undefined ? 0 : (c.targetKcalBase + v) / (1 - c.tefPct / 100);
+    $('#quick-out').textContent = v === undefined ? '—' : fmt(data.settings.targets.carbs + (total - c.targetKcalBase) / C.KCAL_PER_G.carbs) + ' g';
   });
 }
 
@@ -486,10 +487,17 @@ function macroAdvice(c) {
   }
 
   if (c.hasMacros && c.eaten > 0) {
-    const d = c.eaten - (c.targetKcalBase + c.burned);
-    lines.push(`Spolu zjedené <b class="num">${fmt(c.eaten)}</b> z ${fmt(c.targetKcalBase + c.burned)} kcal
+    const d = c.eaten - c.targetKcalTotal;
+    lines.push(`Spolu zjedené <b class="num">${fmt(c.eaten)}</b> z ${fmt(c.targetKcalTotal)} kcal
       <span class="${d > 50 ? 'lvl-bad' : ''}">(${fmtSigned(d)})</span>.`);
+    // nad plánom neznamená prebytok: cieľ už obsahuje plánovaný deficit
+    if (d > 50 && c.balance < 0) {
+      lines.push(`Deň je stále v deficite <b class="num">${fmtSigned(c.balance)} kcal</b>, len menšom ako plánovaných
+        ${fmtSigned(c.plannedBalance)} kcal (cieľ ${fmt(c.targetKcalBase)} − bazál ${fmt(c.targetKcalBase - c.plannedBalance)}).`);
+    }
   }
+  // červená len pri prebytku; nad plánom, ale v deficite = žltá
+  if (level === 'bad' && c.eaten > 0 && c.balance < 0) level = 'ok';
   return { lines, level };
 }
 
