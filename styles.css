@@ -213,6 +213,7 @@ input[type=date] { padding-right: 12px; min-height: 48px; }
 .bar { height: 10px; border-radius: 999px; background: var(--input); overflow: hidden; position: relative; }
 .bar > i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 999px; background: var(--accent); }
 .bar > i.over { background: var(--bad); }
+.bar > i.under { background: var(--ok); }
 .callout {
   border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 15px;
 }

@@ -94,6 +94,8 @@ export function computeDay(data, date) {
     bazal, balance, hasData: eaten > 0 || burned > 0,
     targetKcalBase, targetKcalTotal: burned ? targetKcalBase + burned : 0, // J
     carbsLeft: carbsTarget - eatenMacro.carbs, // R
+    // tuky a bielkoviny nad cieľ zaberú časť kalórií určených na sacharidy
+    extraKcal: ['fat', 'protein'].reduce((sum, m) => sum + Math.max(0, diff[m]) * KCAL_PER_G[m], 0),
     hasMacros, eatenMacro, targets, diff,
   };
 }

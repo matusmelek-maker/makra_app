@@ -1,5 +1,5 @@
 // Offline cache. Pri každej zmene súborov zvýš VERSION.
-const VERSION = 'makra-v12';
+const VERSION = 'makra-v13';
 const FILES = ['./', 'index.html', 'styles.css', 'app.js', 'calc.js', 'health.js', 'manifest.webmanifest',
   'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 

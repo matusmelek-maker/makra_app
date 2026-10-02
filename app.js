@@ -3,6 +3,7 @@ import { parseHealthPayload } from './health.js';
 
 const STORE_KEY = 'makra-data-v1';
 const BACKUP_KEY = 'makra-last-backup';
+const UNDO_IMPORT_KEY = 'makra-before-import'; // stav pred posledným nahratím zálohy
 const DAY_NAMES = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
 const DAY_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
 const MACRO_LABEL = { carbs: 'Sacharidy', protein: 'Bielkoviny', fat: 'Tuky', fiber: 'Vláknina' };
@@ -258,7 +259,7 @@ function closeHealth(view) {
 function rawDetails(raw) {
   if (!raw) return '';
   const txt = String(raw).slice(0, 1500);
-  return `<details style="margin-top:8px"><summary>▸ Čo prišlo zo skratky</summary>
+  return `<details style="margin-top:8px"><summary>▸ Čo presne poslala skratka</summary>
     <pre style="white-space:pre-wrap;word-break:break-all;font-size:12px;margin:6px 0 0">${esc(txt)}</pre></details>`;
 }
 
@@ -324,14 +325,19 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
       notes.push(`Skratka v Zdraví nenašla ani jeden záznam <b>Energia v potrave</b> – zrejme ich nemá povolené čítať:
         Zdravie → Výživa → Energia v potrave → Zdroje údajov a prístup → Skratky.`);
     }
-    if (zeroMacros.length) notes.push(`Ako 0 prišlo: ${zeroMacros.join(', ')} – tie som neprepísal.`);
-    box.innerHTML = `<div class="callout ${notes.length ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
+    const warn = zeroMacros.length ? `Ako 0 prišlo: ${zeroMacros.join(', ')} – tie som neprepísal.` : '';
+    box.innerHTML = `<div class="callout ${warn ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
       <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
         <span>Zo Zdravia: <b class="num">${parts || '—'}</b></span>
-        <button class="btn small secondary" id="health-undo">Vrátiť</button></div>
-      ${notes.map((n) => `<div style="margin-top:8px">${n}</div>`).join('')}
-      ${rawDetails(lastImport.raw)}
+        <span style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn small secondary" id="health-undo">Vrátiť</button>
+          <button class="btn small secondary" id="health-hide" aria-label="Skryť">✕</button></span></div>
+      ${warn ? `<div style="margin-top:8px">${warn}</div>` : ''}
+      <details style="margin-top:8px"><summary>▸ Podrobnosti</summary>
+        ${notes.map((n) => `<div style="margin-top:6px;font-size:14px">${n}</div>`).join('')}
+        ${rawDetails(lastImport.raw)}</details>
     </div>`;
+    $('#health-hide', box).addEventListener('click', () => { lastImport = null; renderHealthBox(view); });
     $('#health-undo', box).addEventListener('click', () => {
       if (lastImport.prev) data.days[lastImport.date] = lastImport.prev;
       else delete data.days[lastImport.date];
@@ -383,23 +389,23 @@ function updateDayComputed() {
     const eaten = c.eatenMacro[m];
     const target = c.targets[m];
     const pct = target > 0 ? Math.min(100, (eaten / target) * 100) : 0;
+    // nad cieľ: sacharidy a tuky červené (bielkoviny a vláknina navyše nevadia); chýba viac ako 5 %: žlté
     const over = eaten > target * 1.05 && m !== 'protein' && m !== 'fiber';
+    const under = eaten < target * 0.95;
     const diff = c.diff[m];
     return `<div class="macro">
       <div class="row"><b>${MACRO_LABEL[m]}</b><span class="num">${fmt(eaten, eaten % 1 ? 1 : 0)} / ${fmt(target)} g
-        <span class="${diff > 0 ? (over ? 'lvl-bad' : 'lvl-good') : 'muted'}">(${fmtSigned(diff)})</span></span></div>
-      <div class="bar"><i class="${over ? 'over' : ''}" style="width:${pct}%"></i></div>
+        <span class="${over ? 'lvl-bad' : under ? 'lvl-ok' : 'lvl-good'}">(${fmtSigned(diff)})</span></span></div>
+      <div class="bar"><i class="${over ? 'over' : under ? 'under' : ''}" style="width:${pct}%"></i></div>
     </div>`;
   }).join('');
-  const left = c.carbsLeft;
+  const a = macroAdvice(c);
   $('#macros').innerHTML = `
     <h2>Makrá <small>cieľ ${fmt(c.targetKcalBase)} kcal + výdaj${c.burned ? ' = ' + fmt(c.targetKcalTotal) + ' kcal' : ''}</small></h2>
     ${bars}
-    <div class="callout ${left > 0 ? 'bg-ok' : 'bg-good'}">
-      ${left > 0
-        ? `Ešte môžeš doplniť <b class="num">${fmt(left)} g</b> sacharidov.`
-        : `Sacharidy splnené${left < -1 ? ` (o <b class="num">${fmt(-left)} g</b> viac)` : ''}.`}
-      <div class="muted" style="font-size:13px;margin-top:4px">Sacharidy = ${fmt(data.settings.targets.carbs)} g + výdaj pohybom / 4,1</div>
+    <div class="callout bg-${a.level}">
+      ${a.lines.map((l, i) => `<div${i ? ' style="margin-top:6px"' : ''}>${l}</div>`).join('')}
+      <div class="muted" style="font-size:13px;margin-top:6px">Sacharidy = ${fmt(data.settings.targets.carbs)} g + výdaj pohybom / 4,1${c.extraKcal >= 1 ? ' − tuky a bielkoviny navyše / 4,1' : ''}</div>
     </div>
     <details style="margin-top:12px">
       <summary>▸ Rýchly výpočet (odhad výdaja dopredu)</summary>
@@ -412,6 +418,47 @@ function updateDayComputed() {
     const v = parseNum(e.target.value);
     $('#quick-out').textContent = v === undefined ? '—' : fmt(data.settings.targets.carbs + v / C.KCAL_PER_G.carbs) + ' g';
   });
+}
+
+// Rozbor makier: koľko sacharidov ešte zostáva po odrátaní tukov/bielkovín navyše a čo chýba
+function macroAdvice(c) {
+  const lines = [];
+  const kc = C.KCAL_PER_G.carbs;
+  const left = c.carbsLeft;
+  const leftAdj = left - c.extraKcal / kc;
+  const extra = ['fat', 'protein'].filter((m) => c.diff[m] > 0.5)
+    .map((m) => `${MACRO_LABEL[m].toLowerCase()} +${fmt(c.diff[m])} g`).join(', ');
+  let level = 'good';
+
+  if (left <= 0) {
+    lines.push(`Sacharidy splnené${left < -1 ? ` (o <b class="num">${fmt(-left)} g</b> viac)` : ''}.`);
+    if (left < -5) level = 'bad';
+  } else if (c.extraKcal >= 1 && leftAdj <= 0) {
+    lines.push(`Sacharidy už nedopĺňaj. Podľa cieľa zostáva ${fmt(left)} g, ale ${extra} nad cieľ
+      (≈ <b class="num">${fmt(c.extraKcal)} kcal</b>, ako ${fmt(c.extraKcal / kc)} g sacharidov) to prevyšujú.`);
+    level = 'bad';
+  } else if (c.extraKcal >= 1) {
+    lines.push(`Ešte môžeš doplniť <b class="num">${fmt(leftAdj)} g</b> sacharidov
+      (z ${fmt(left)} g som odrátal ${extra} ≈ ${fmt(c.extraKcal)} kcal).`);
+    level = 'ok';
+  } else {
+    lines.push(`Ešte môžeš doplniť <b class="num">${fmt(left)} g</b> sacharidov.`);
+    level = 'ok';
+  }
+
+  const missing = ['protein', 'fiber'].filter((m) => c.eatenMacro[m] < c.targets[m] * 0.95)
+    .map((m) => `${MACRO_LABEL[m].toLowerCase()} <b class="num">${fmt(-c.diff[m])} g</b>`);
+  if (c.hasMacros && missing.length) {
+    lines.push(`Chýba: ${missing.join(', ')}${leftAdj <= 0 ? ' – dopĺňaj ich bez ďalších tukov a sacharidov (napr. tvaroh, kuracie, zelenina).' : '.'}`);
+    if (level === 'good') level = 'ok';
+  }
+
+  if (c.hasMacros && c.eaten > 0) {
+    const d = c.eaten - (c.targetKcalBase + c.burned);
+    lines.push(`Spolu zjedené <b class="num">${fmt(c.eaten)}</b> z ${fmt(c.targetKcalBase + c.burned)} kcal
+      <span class="${d > 50 ? 'lvl-bad' : ''}">(${fmtSigned(d)})</span>.`);
+  }
+  return { lines, level };
 }
 
 // ---------- WEEKS ----------
@@ -686,6 +733,8 @@ function renderSettings(view) {
         <button class="btn secondary" id="import">Nahrať zálohu</button>
         <input type="file" id="import-file" accept=".json,application/json" hidden>
       </div>
+      ${localStorage.getItem(UNDO_IMPORT_KEY) ? '<div class="btn-row" style="margin-top:8px"><button class="btn small secondary" id="undo-import">Vrátiť posledné nahratie zálohy</button></div>' : ''}
+      <p class="muted" style="font-size:13px;margin-bottom:0">Nahratie zálohu s dátami v telefóne zlúči – nič sa nevymaže.</p>
       <p class="muted" style="font-size:13px">Záznamov: ${Object.keys(data.days).length} dní, ${data.measurements.length} meraní.</p>
     </section>
 
@@ -764,6 +813,7 @@ function renderSettings(view) {
   $('#export', view).addEventListener('click', exportData);
   $('#import', view).addEventListener('click', () => $('#import-file').click());
   $('#import-file', view).addEventListener('change', importData);
+  $('#undo-import', view)?.addEventListener('click', undoImport);
   $('#wipe', view).addEventListener('click', () => {
     if (!confirm('Naozaj vymazať všetky dáta? Najprv si stiahni zálohu!')) return;
     if (!confirm('Posledné potvrdenie – vymazať?')) return;
@@ -797,6 +847,32 @@ async function exportData() {
   }
 }
 
+const daysWord = (n) => (n === 1 ? 'deň' : n >= 2 && n <= 4 ? 'dni' : 'dní');
+
+// Zlúčenie zálohy: to, čo je v telefóne, má prednosť; zo zálohy sa doplní len to, čo chýba
+function mergeBackup(cur, bak) {
+  const days = { ...cur.days };
+  for (const [k, day] of Object.entries(bak.days)) days[k] = { ...day, ...(cur.days[k] || {}) };
+  const measDates = new Set(cur.measurements.map((m) => m.date));
+  const measurements = [...cur.measurements, ...bak.measurements.filter((m) => !measDates.has(m.date))]
+    .sort((a, b) => a.date.localeCompare(b.date));
+  return { ...cur, days, measurements };
+}
+
+function undoImport() {
+  try {
+    const u = JSON.parse(localStorage.getItem(UNDO_IMPORT_KEY));
+    if (!u || !confirm(`Vrátiť dáta do stavu pred nahratím zálohy (${dmy(u.at.slice(0, 10))})?`)) return;
+    data = migrate(u.data);
+    save(true);
+    localStorage.removeItem(UNDO_IMPORT_KEY);
+    toast('Vrátené pred nahratie zálohy');
+    render();
+  } catch {
+    toast('Nie je čo vrátiť');
+  }
+}
+
 async function importData(e) {
   const f = e.target.files[0];
   e.target.value = '';
@@ -805,10 +881,27 @@ async function importData(e) {
     const d = JSON.parse(await f.text());
     if (d.app !== 'makra' || !d.days || !d.settings) throw new Error('format');
     const n = Object.keys(d.days).length;
-    if (!confirm(`Nahrať zálohu (${n} dní, ${(d.measurements || []).length} meraní)? Aktuálne dáta v zariadení sa nahradia.`)) return;
-    data = migrate(d);
+    const empty = !Object.keys(data.days).length && !data.measurements.length;
+    const added = Object.keys(d.days).filter((k) => !data.days[k]).length;
+    const both = n - added;
+    const msg = empty
+      ? `Nahrať zálohu (${n} dní, ${(d.measurements || []).length} meraní)?`
+      : `Zlúčiť zálohu s dátami v telefóne?\n\n• pridá sa ${added} ${daysWord(added)}, ktoré v telefóne chýbajú\n` +
+        (both ? `• ${both} ${daysWord(both)} už máš – pri nich sa doplnia len prázdne polia\n` : '') +
+        '• nič sa nevymaže ani neprepíše';
+    if (!confirm(msg)) return;
+    const bak = migrate(d);
+    const takeSettings = !empty && JSON.stringify(bak.settings) !== JSON.stringify(data.settings) &&
+      confirm(`Prevziať aj nastavenia zo zálohy?\n\nV zálohe: bazál ${fmt(C.valueAt(bak.settings.bazal, C.today()))} kcal, ` +
+        `počiatočná váha ${fmt(bak.settings.startWeight, 1)} kg, cieľ ${fmt(bak.settings.goalFatKg, 1)} kg, od ${dmy(bak.settings.startDate)}.\n` +
+        `Teraz: bazál ${fmt(C.valueAt(data.settings.bazal, C.today()))} kcal, váha ${fmt(data.settings.startWeight, 1)} kg, ` +
+        `cieľ ${fmt(data.settings.goalFatKg, 1)} kg, od ${dmy(data.settings.startDate)}.\n\nOK = zo zálohy, Zrušiť = nechať moje`);
+    flush();
+    try { localStorage.setItem(UNDO_IMPORT_KEY, JSON.stringify({ at: new Date().toISOString(), data })); } catch {}
+    data = empty ? bak : mergeBackup(data, bak);
+    if (takeSettings) data.settings = { ...bak.settings, shortcutName: data.settings.shortcutName };
     save(true);
-    toast(`Nahraté: ${n} dní`);
+    toast(empty ? `Nahraté: ${n} ${daysWord(n)}` : `Zlúčené: +${added} ${daysWord(added)}`);
     render();
   } catch (err) {
     toast('Neplatný súbor zálohy');
