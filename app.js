@@ -125,7 +125,7 @@ function field({ id, label, unit = '', value, placeholder = '', hint = '', cls =
 }
 
 // ---------- navigation ----------
-const TITLES = { day: 'Deň', weeks: 'Týždne', stats: 'Štatistika', goal: 'Cieľ', settings: 'Nastavenia' };
+const TITLES = { day: 'Deň', weeks: 'Týždne', stats: 'Štatistika', calc: 'Kalkulačka', settings: 'Nastavenia' };
 function go(t) {
   tab = t;
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === t));
@@ -137,7 +137,7 @@ $$('.tabbar button').forEach((b) => b.addEventListener('click', () => go(b.datas
 
 function render() {
   const view = $('#view');
-  ({ day: renderDay, weeks: renderWeeks, stats: renderStats, goal: renderGoal, settings: renderSettings })[tab](view);
+  ({ day: renderDay, weeks: renderWeeks, stats: renderStats, calc: renderCalcTab, settings: renderSettings })[tab](view);
 }
 
 // ---------- zbaliteľné karty: ťuk na nadpis karty ju zbalí/rozbalí, appka si to pamätá ----------
@@ -225,7 +225,7 @@ function renderDay(view) {
         </div>`).join('')}
       </div>
       <div id="macro-advice" style="margin-top:14px"></div>
-      <p class="muted" style="font-size:13px;margin:10px 0 0">Cieľ makier nastavíš v sekcii <b>Cieľ → Môj plán makier</b>.</p>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">Cieľ makier nastavíš v sekcii <b>Kalkulačka</b>.</p>
     </section>
 
     <section class="card">
@@ -729,11 +729,39 @@ function renderWeeks(view) {
 }
 
 // ---------- GOAL ----------
-function renderGoal(view) {
-  const g = C.computeGoal(data);
+function renderCalcTab(view) {
+  view.innerHTML = `
+    <section class="card" id="calc-card"></section>`;
+  renderCalc($('#calc-card', view));
+  applyFold(view);
+}
+
+// ---------- ŠTATISTIKA ----------
+function renderStats(view) {
   const s = data.settings;
+  const g = C.computeGoal(data);
   const R = 52;
   const circ = 2 * Math.PI * R;
+  const weights = Object.entries(data.days).filter(([, d]) => d.weight).sort(([a], [b]) => a.localeCompare(b));
+  const weightSeries = [{ date: s.startDate, y: s.startWeight }, ...weights.map(([date, d]) => ({ date, y: d.weight }))]
+    .filter((p, i, arr) => i === 0 || p.y !== arr[i - 1].y || i === arr.length - 1);
+  const meas = [...data.measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const fatSeries = meas.filter((m) => m.fatKg).map((m) => ({ date: m.date, y: m.fatKg }));
+  const muscleSeries = meas.filter((m) => m.muscleKg).map((m) => ({ date: m.date, y: m.muscleKg }));
+
+  // prehľad: posledné meranie oproti prvému (tuk aj v % z váhy v deň merania)
+  const stat = (label, series, unit, goodDown) => {
+    if (!series.length) return '';
+    const a = series[0];
+    const b = series[series.length - 1];
+    const d = b.y - a.y;
+    const good = goodDown ? d <= 0 : d >= 0;
+    return `<div class="stat"><span>${label}</span><b>${fmt(b.y, 1)} ${unit}
+      ${series.length > 1 ? `<small class="${good ? 'lvl-good' : 'lvl-bad'}">(${fmtSigned(d, 1)})</small>` : ''}</b></div>`;
+  };
+  const lastFat = meas.filter((m) => m.fatKg).slice(-1)[0];
+  const fatPct = lastFat ? (lastFat.fatKg / C.weightAt(data, lastFat.date)) * 100 : null;
+
   view.innerHTML = `
     <section class="card">
       <div class="ring-wrap">
@@ -758,37 +786,6 @@ function renderGoal(view) {
       </div>
     </section>
 
-    <section class="card" id="calc-card"></section>`;
-
-  renderCalc($('#calc-card', view));
-  applyFold(view);
-}
-
-// ---------- ŠTATISTIKA ----------
-function renderStats(view) {
-  const s = data.settings;
-  const g = C.computeGoal(data);
-  const weights = Object.entries(data.days).filter(([, d]) => d.weight).sort(([a], [b]) => a.localeCompare(b));
-  const weightSeries = [{ date: s.startDate, y: s.startWeight }, ...weights.map(([date, d]) => ({ date, y: d.weight }))]
-    .filter((p, i, arr) => i === 0 || p.y !== arr[i - 1].y || i === arr.length - 1);
-  const meas = [...data.measurements].sort((a, b) => a.date.localeCompare(b.date));
-  const fatSeries = meas.filter((m) => m.fatKg).map((m) => ({ date: m.date, y: m.fatKg }));
-  const muscleSeries = meas.filter((m) => m.muscleKg).map((m) => ({ date: m.date, y: m.muscleKg }));
-
-  // prehľad: posledné meranie oproti prvému (tuk aj v % z váhy v deň merania)
-  const stat = (label, series, unit, goodDown) => {
-    if (!series.length) return '';
-    const a = series[0];
-    const b = series[series.length - 1];
-    const d = b.y - a.y;
-    const good = goodDown ? d <= 0 : d >= 0;
-    return `<div class="stat"><span>${label}</span><b>${fmt(b.y, 1)} ${unit}
-      ${series.length > 1 ? `<small class="${good ? 'lvl-good' : 'lvl-bad'}">(${fmtSigned(d, 1)})</small>` : ''}</b></div>`;
-  };
-  const lastFat = meas.filter((m) => m.fatKg).slice(-1)[0];
-  const fatPct = lastFat ? (lastFat.fatKg / C.weightAt(data, lastFat.date)) * 100 : null;
-
-  view.innerHTML = `
     <section class="card">
       <h2>Prehľad tela <small>${meas.length ? `merania ${dmy(meas[0].date)} – ${dmy(meas[meas.length - 1].date)}` : ''}</small></h2>
       <div class="stats">
