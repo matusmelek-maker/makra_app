@@ -223,11 +223,19 @@ function applyHealth(text, view) {
   }
   const date = p.date || pendingHealth() || currentDate;
   const prev = data.days[date] ? { ...data.days[date] } : undefined;
-  data.days[date] = { ...(data.days[date] || {}), ...p.values };
+  const day = { ...(data.days[date] || {}), ...p.values };
+  // kalórie neprišli -> dopočítaj ich z makier ako Kalorické tabuľky; ručne zapísané kalórie neprepisuj
+  let kcalEst = false;
+  if (p.values.kcal !== undefined) delete day.kcalEst;
+  else if (!day.kcal || day.kcalEst) {
+    const est = Math.round(C.labelKcal(day));
+    if (est > 0) Object.assign(day, { kcal: est, kcalEst: (kcalEst = true) });
+  }
+  data.days[date] = day;
   save(true);
   setPendingHealth(null);
   healthPanelOpen = false;
-  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero, kcalNoSamples: p.kcalNoSamples, zeros: p.zeros };
+  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero, kcalNoSamples: p.kcalNoSamples, kcalEst, zeros: p.zeros };
   currentDate = date;
   renderDay(view);
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
@@ -286,8 +294,10 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
   }
   if (lastImport && lastImport.date === currentDate) {
     const v = lastImport.values;
+    const dayNow = data.days[lastImport.date] || {};
     const parts = [
       v.kcal !== undefined && `${fmt(v.kcal)} kcal`,
+      lastImport.kcalEst && `≈ ${fmt(dayNow.kcal)} kcal`,
       v.carbs !== undefined && `S ${fmt(v.carbs)}`,
       v.protein !== undefined && `B ${fmt(v.protein)}`,
       v.fat !== undefined && `T ${fmt(v.fat)}`,
@@ -296,15 +306,17 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
     const noKcal = v.kcal === undefined;
     const zeroMacros = (lastImport.zeros || []).filter((k) => k !== 'kcal').map((k) => MACRO_LABEL[k].toLowerCase());
     const notes = [];
-    if (noKcal) {
-      const fromMacros = `<b class="num">${fmt(C.macroKcal(data.days[lastImport.date] || {}))} kcal</b>`;
-      notes.push(lastImport.kcalNoSamples
-        ? `Skratka v Zdraví nenašla ani jeden záznam <b>Energia v potrave</b> – zrejme nemá povolené ich čítať.
-           Zapni to v appke Zdravie → Výživa → Energia v potrave → Zdroje údajov a prístup → Skratky.
-           Zatiaľ rátam kalórie z makier: ${fromMacros}.`
-        : lastImport.kcalZero
-          ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: ${fromMacros}.`
-          : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.');
+    if (lastImport.kcalEst) {
+      notes.push(`Kalórie zo Zdravia neprišli – dopočítal som ich z makier ako Kalorické tabuľky
+        (4 · 4 · 9 · 2 kcal na gram): <b class="num">${fmt(dayNow.kcal)} kcal</b>. Môžu sa líšiť o pár kcal.`);
+    } else if (noKcal) {
+      notes.push(dayNow.kcal
+        ? `Kalórie zo Zdravia neprišli – nechal som tvoje zapísané: <b class="num">${fmt(dayNow.kcal)} kcal</b>.`
+        : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.');
+    }
+    if (noKcal && lastImport.kcalNoSamples) {
+      notes.push(`Skratka v Zdraví nenašla ani jeden záznam <b>Energia v potrave</b> – zrejme ich nemá povolené čítať:
+        Zdravie → Výživa → Energia v potrave → Zdroje údajov a prístup → Skratky.`);
     }
     if (zeroMacros.length) notes.push(`Ako 0 prišlo: ${zeroMacros.join(', ')} – tie som neprepísal.`);
     box.innerHTML = `<div class="callout ${notes.length ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
@@ -332,6 +344,7 @@ function setDayField(key, value) {
   const day = { ...(data.days[currentDate] || {}) };
   if (value === undefined) delete day[key];
   else day[key] = value;
+  if (key === 'kcal') delete day.kcalEst; // ručne zapísané kalórie už nie sú odhad
   if (Object.keys(day).length) data.days[currentDate] = day;
   else delete data.days[currentDate];
   save();
@@ -346,7 +359,7 @@ function updateDayComputed() {
     <div class="big num lvl-${lvl}">${c.eaten > 0 ? fmtSigned(c.balance) : '—'} <small style="font-size:18px">kcal</small></div>
     <div class="label">${c.eaten > 0 ? 'Bilancia dňa · ' + LEVEL_TEXT[lvl] : 'Zapíš zjedené kalórie a pohyb'}</div>
     <div class="breakdown">
-      <div><b class="num">${fmt(c.eaten)}</b><span>zjedené${c.kcalFromMacros ? ' (z makier)' : ''}</span></div>
+      <div><b class="num">${fmt(c.eaten)}</b><span>zjedené${c.kcalFromMacros ? ' (z makier)' : c.day.kcalEst ? ' (dopočítané)' : ''}</span></div>
       <div><b class="num">${fmtMinus(c.bazal)}</b><span>bazál</span></div>
       <div><b class="num">${fmtMinus(c.burned)}</b><span>pohyb</span></div>
     </div>`;

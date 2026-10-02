@@ -3,6 +3,8 @@
 export const KCAL_PER_KG_FAT = 7700;
 export const KCAL_PER_G = { carbs: 4.1, protein: 4.1, fat: 9, fiber: 1 };
 export const MACROS = ['carbs', 'protein', 'fat', 'fiber'];
+// Kalorické tabuľky (ako etikety v EÚ) rátajú 4 / 4 / 9 / 2 kcal na gram – na dopočet, keď kalórie zo Zdravia neprídu
+export const KCAL_PER_G_LABEL = { carbs: 4, protein: 4, fat: 9, fiber: 2 };
 
 // ---- dátumy (ISO "YYYY-MM-DD", vždy v lokálnom čase) ----
 export function iso(d) {
@@ -46,6 +48,10 @@ export function weightAt(data, date) {
 
 export function macroKcal(day) {
   return MACROS.reduce((s, m) => s + (Number(day[m]) || 0) * KCAL_PER_G[m], 0);
+}
+
+export function labelKcal(day) {
+  return MACROS.reduce((s, m) => s + (Number(day[m]) || 0) * KCAL_PER_G_LABEL[m], 0);
 }
 
 // Zjedené kcal: ručne zapísané, inak dopočítané z makier
