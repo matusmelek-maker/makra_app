@@ -52,6 +52,12 @@ Pre každé makro pridaj **Nájsť zdravotné vzorky** (rovnaký filter dátumu 
 | Tuky celkom (*Total Fat*) | **fat** |
 | Vláknina (*Fiber*) | **fiber** |
 
+## Krok 4b – kroky (voliteľné)
+Pridaj **Nájsť zdravotné vzorky** → typ **Kroky** (*Steps*), rovnaký filter dátumu ako vyššie, a pod ňu
+**Vypočítať štatistiku → Súčet**. V Slovníku (krok 5) potom pridaj položku **Číslo** · `steps` · tento **Súčet**.
+Appka zapíše **Kroky za deň**. Kroky pri behu zapíš do poľa *z toho pri behu/športe* – appka ich odpočíta,
+lebo beh má kalórie zvlášť v poli Šport.
+
 ---
 
 ## Krok 5 – zbalenie a kopírovanie

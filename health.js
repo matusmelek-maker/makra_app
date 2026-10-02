@@ -7,7 +7,13 @@ const KEYS = {
   protein: ['protein', 'bielkoviny'],
   fat: ['fat', 'tuky'],
   fiber: ['fiber', 'vlaknina', 'vláknina'],
+  steps: ['steps', 'kroky'],
+  sportSteps: ['sport_steps', 'sportsteps'],
+  sport: ['sport', 'šport'],
+  gym: ['gym', 'posilka'],
 };
+const ENERGY_KEYS = ['kcal', 'sport', 'gym']; // kcal (pri kJ prepočítať)
+const WHOLE_KEYS = [...ENERGY_KEYS, 'steps', 'sportSteps']; // celé čísla
 const KJ_PER_KCAL = 4.184;
 
 // Skratky môžu poslať číslo, text so slovenským formátom ("2 140,5") aj s jednotkou ("2 140 kcal", "8 950 kJ"),
@@ -85,11 +91,11 @@ export function parseHealthPayload(text) {
     const single = toNum(aliases.map((a) => lower[a]).find((v) => v !== undefined));
     const r = list && list.n > 0 ? list : single || list;
     if (!r || r.n < 0) continue;
-    if (key === 'kcal') values.kcal = Math.round(r.kj ? r.n / KJ_PER_KCAL : r.n);
-    else values[key] = Math.round(r.n * 10) / 10;
+    const n = ENERGY_KEYS.includes(key) && r.kj ? r.n / KJ_PER_KCAL : r.n;
+    values[key] = WHOLE_KEYS.includes(key) ? Math.round(n) : Math.round(n * 10) / 10;
   }
-  if (!Object.keys(values).length) throw new Error('V údajoch chýbajú kalórie aj makrá.');
-  if (!Object.values(values).some((v) => v > 0)) throw new Error('V Zdraví zatiaľ nie je za tento deň zapísané žiadne jedlo.');
+  if (!Object.keys(values).length) throw new Error('V údajoch chýbajú kalórie, makrá aj kroky.');
+  if (!Object.values(values).some((v) => v > 0)) throw new Error('V Zdraví zatiaľ nie je za tento deň zapísané žiadne jedlo ani kroky.');
   if (values.kcal > 15000) throw new Error('Kalórie vyzerajú ako kJ – v Zdraví nastav jednotku energie na kcal.');
 
   // Skratka niekedy pošle 0, hoci v Zdraví záznamy sú -> nulou neprepisuj (kalórie sa potom dopočítajú z makier)

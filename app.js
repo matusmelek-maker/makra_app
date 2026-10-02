@@ -304,9 +304,13 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
       v.protein !== undefined && `B ${fmt(v.protein)}`,
       v.fat !== undefined && `T ${fmt(v.fat)}`,
       v.fiber !== undefined && `V ${fmt(v.fiber)} g`,
+      v.steps !== undefined && `${fmt(v.steps)} krokov`,
+      v.sportSteps !== undefined && `z toho šport ${fmt(v.sportSteps)}`,
+      v.sport !== undefined && `šport ${fmt(v.sport)} kcal`,
+      v.gym !== undefined && `posilka ${fmt(v.gym)} kcal`,
     ].filter(Boolean).join(' · ');
     const noKcal = v.kcal === undefined;
-    const zeroMacros = (lastImport.zeros || []).filter((k) => k !== 'kcal').map((k) => MACRO_LABEL[k].toLowerCase());
+    const zeroMacros = (lastImport.zeros || []).filter((k) => C.MACROS.includes(k)).map((k) => MACRO_LABEL[k].toLowerCase());
     const notes = [];
     if (lastImport.kcalEst) {
       notes.push(`Kalórie zo Zdravia neprišli – dopočítal som ich z makier ako Kalorické tabuľky
