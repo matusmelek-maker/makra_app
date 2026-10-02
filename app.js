@@ -125,7 +125,7 @@ function field({ id, label, unit = '', value, placeholder = '', hint = '', cls =
 }
 
 // ---------- navigation ----------
-const TITLES = { day: 'Deň', weeks: 'Týždne', goal: 'Cieľ', settings: 'Nastavenia' };
+const TITLES = { day: 'Deň', weeks: 'Týždne', stats: 'Štatistika', goal: 'Cieľ', settings: 'Nastavenia' };
 function go(t) {
   tab = t;
   $$('.tabbar button').forEach((b) => b.classList.toggle('active', b.dataset.tab === t));
@@ -137,7 +137,7 @@ $$('.tabbar button').forEach((b) => b.addEventListener('click', () => go(b.datas
 
 function render() {
   const view = $('#view');
-  ({ day: renderDay, weeks: renderWeeks, goal: renderGoal, settings: renderSettings })[tab](view);
+  ({ day: renderDay, weeks: renderWeeks, stats: renderStats, goal: renderGoal, settings: renderSettings })[tab](view);
 }
 
 // ---------- zbaliteľné karty: ťuk na nadpis karty ju zbalí/rozbalí, appka si to pamätá ----------
@@ -734,10 +734,6 @@ function renderGoal(view) {
   const s = data.settings;
   const R = 52;
   const circ = 2 * Math.PI * R;
-  const weights = Object.entries(data.days).filter(([, d]) => d.weight).sort(([a], [b]) => a.localeCompare(b));
-  const weightSeries = [{ date: s.startDate, y: s.startWeight }, ...weights.map(([date, d]) => ({ date, y: d.weight }))]
-    .filter((p, i, arr) => i === 0 || p.y !== arr[i - 1].y || i === arr.length - 1);
-
   view.innerHTML = `
     <section class="card">
       <div class="ring-wrap">
@@ -762,16 +758,66 @@ function renderGoal(view) {
       </div>
     </section>
 
-    <section class="card" id="calc-card"></section>
+    <section class="card" id="calc-card"></section>`;
 
+  renderCalc($('#calc-card', view));
+  applyFold(view);
+}
+
+// ---------- ŠTATISTIKA ----------
+function renderStats(view) {
+  const s = data.settings;
+  const g = C.computeGoal(data);
+  const weights = Object.entries(data.days).filter(([, d]) => d.weight).sort(([a], [b]) => a.localeCompare(b));
+  const weightSeries = [{ date: s.startDate, y: s.startWeight }, ...weights.map(([date, d]) => ({ date, y: d.weight }))]
+    .filter((p, i, arr) => i === 0 || p.y !== arr[i - 1].y || i === arr.length - 1);
+  const meas = [...data.measurements].sort((a, b) => a.date.localeCompare(b.date));
+  const fatSeries = meas.filter((m) => m.fatKg).map((m) => ({ date: m.date, y: m.fatKg }));
+  const muscleSeries = meas.filter((m) => m.muscleKg).map((m) => ({ date: m.date, y: m.muscleKg }));
+
+  // prehľad: posledné meranie oproti prvému (tuk aj v % z váhy v deň merania)
+  const stat = (label, series, unit, goodDown) => {
+    if (!series.length) return '';
+    const a = series[0];
+    const b = series[series.length - 1];
+    const d = b.y - a.y;
+    const good = goodDown ? d <= 0 : d >= 0;
+    return `<div class="stat"><span>${label}</span><b>${fmt(b.y, 1)} ${unit}
+      ${series.length > 1 ? `<small class="${good ? 'lvl-good' : 'lvl-bad'}">(${fmtSigned(d, 1)})</small>` : ''}</b></div>`;
+  };
+  const lastFat = meas.filter((m) => m.fatKg).slice(-1)[0];
+  const fatPct = lastFat ? (lastFat.fatKg / C.weightAt(data, lastFat.date)) * 100 : null;
+
+  view.innerHTML = `
     <section class="card">
-      <h2>Zostávajúce kalórie do cieľa</h2>
-      <div id="chart-remaining"></div>
+      <h2>Prehľad tela <small>${meas.length ? `merania ${dmy(meas[0].date)} – ${dmy(meas[meas.length - 1].date)}` : ''}</small></h2>
+      <div class="stats">
+        ${stat('Váha', weightSeries, 'kg', true)}
+        ${stat('Tuk', fatSeries, 'kg', true)}
+        ${fatPct ? `<div class="stat"><span>Tuk z váhy</span><b>${fmt(fatPct, 1)} %</b></div>` : ''}
+        ${stat('Svaly', muscleSeries, 'kg', false)}
+      </div>
+      ${meas.length ? '' : '<p class="muted" style="font-size:14px;margin-bottom:0">Pridaj meranie z InBody dole v karte Merania.</p>'}
     </section>
 
     <section class="card">
       <h2>Váha</h2>
       <div id="chart-weight"></div>
+    </section>
+
+    <section class="card">
+      <h2>Tuk <small>InBody</small></h2>
+      <div id="chart-fat"></div>
+    </section>
+
+    <section class="card">
+      <h2>Svaly <small>InBody</small></h2>
+      <div id="chart-muscle"></div>
+    </section>
+
+    <section class="card">
+      <h2>Zostávajúce kalórie do cieľa</h2>
+      <div id="chart-remaining"></div>
     </section>
 
     <section class="card">
@@ -792,11 +838,12 @@ function renderGoal(view) {
       <ul class="list" id="meas-list"></ul>
     </section>`;
 
-  renderCalc($('#calc-card', view));
-  applyFold(view);
-  lineChart($('#chart-remaining', view), g.series.map((p) => ({ date: p.date, y: p.remaining })), { unit: 'kcal', dec: 0, area: true });
   lineChart($('#chart-weight', view), weightSeries, { unit: 'kg', dec: 1 });
+  lineChart($('#chart-fat', view), fatSeries, { unit: 'kg', dec: 1 });
+  lineChart($('#chart-muscle', view), muscleSeries, { unit: 'kg', dec: 1 });
+  lineChart($('#chart-remaining', view), g.series.map((p) => ({ date: p.date, y: p.remaining })), { unit: 'kcal', dec: 0, area: true });
   renderMeasurements();
+  applyFold(view);
 
   const form = $('#meas-form', view);
   $('#add-meas', view).addEventListener('click', () => { form.hidden = false; $('#m-bazal').focus(); });
@@ -819,7 +866,7 @@ function renderGoal(view) {
     }
     save(true);
     toast('Meranie uložené');
-    renderGoal(view);
+    renderStats(view);
   });
 }
 
@@ -838,7 +885,7 @@ function renderMeasurements() {
     if (!confirm('Zmazať toto meranie?')) return;
     data.measurements.splice(Number(b.dataset.del), 1);
     save(true);
-    renderMeasurements();
+    render(); // prekresli aj grafy
   }));
 }
 

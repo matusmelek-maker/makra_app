@@ -343,7 +343,7 @@ details[open] summary { margin-bottom: 8px; }
 /* ---- tabbar ---- */
 .tabbar {
   position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: grid; grid-template-columns: repeat(5, 1fr);
   background: color-mix(in srgb, var(--card) 92%, transparent);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
