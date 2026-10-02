@@ -199,19 +199,22 @@ function renderDay(view) {
     </div>
     ${isToday ? '' : '<div style="text-align:center;margin-top:8px"><button class="chip-btn" id="gotoday">Späť na dnes</button></div>'}
 
-    <section class="card hero" id="hero"></section>
-
     <section class="card" id="food">
-      <h2>Jedlo a makrá <button class="btn small secondary" id="from-health">Nahrať zo Zdravia</button></h2>
-      <div id="health-box"></div>
-      <div class="food-top">
+      <h2>Kalórie a makrá <button class="btn small secondary" id="from-health">Nahrať zo Zdravia</button></h2>
+      <div class="food-top keep">
         <div class="food-ring" id="food-ring"></div>
-        <div class="food-kcal">
-          ${field({ id: 'kcal', label: 'Zjedené kalórie', unit: 'kcal', value: day.kcal, mode: 'numeric' })}
-          <div class="food-target" id="food-target"></div>
-        </div>
+        <div class="bal" id="bal"></div>
       </div>
+      <div id="health-box"></div>
       <div class="mrows">
+        <div class="mrow">
+          <label for="kcal"><i class="dot dot-kcal"></i>Kalórie</label>
+          <div class="field"><div class="wrap"><input id="kcal" name="kcal" type="text" inputmode="numeric" autocomplete="off"
+            value="${esc(inputVal(day.kcal))}"><span class="unit">kcal</span></div></div>
+          <span class="mt num" id="mt-kcal"></span>
+          <div class="bar"><i id="mb-kcal"></i></div>
+          <div class="mhint" id="kcal-hint"></div>
+        </div>
         ${C.MACROS.map((m) => `
         <div class="mrow">
           <label for="${m}"><i class="dot dot-${m}"></i>${MACRO_LABEL[m]}</label>
@@ -449,18 +452,28 @@ function updateDayComputed() {
   const c = C.computeDay(data, currentDate);
   const lvl = C.dayLevel(c.balance, c.eaten > 0);
 
-  $('#hero').innerHTML = `
-    <div class="big num lvl-${lvl}">${c.eaten > 0 ? fmtSigned(c.balance) : '—'} <small style="font-size:18px">kcal</small></div>
-    <div class="label">${c.eaten > 0 ? 'Bilancia dňa · ' + levelText(lvl, c.balance) : 'Zapíš zjedené kalórie a pohyb'}</div>
-    <div class="breakdown${c.tef ? ' four' : ''}">
-      <div><b class="num">${fmt(c.eaten)}</b><span>zjedené${c.kcalFromMacros ? ' (z makier)' : c.day.kcalEst ? ' (dopočítané)' : ''}</span></div>
-      <div><b class="num">${fmtMinus(c.bazal)}</b><span>bazál</span></div>
-      ${c.tef ? `<div><b class="num">${fmtMinus(c.tef)}</b><span>trávenie</span></div>` : ''}
-      <div><b class="num">${fmtMinus(c.burned)}</b><span>pohyb</span></div>
+  // bilancia dňa vedľa kruhu (predtým samostatná karta hore)
+  $('#bal').innerHTML = `
+    <div class="bal-num num lvl-${lvl}">${c.eaten > 0 ? fmtSigned(c.balance) : '—'} <small>kcal</small></div>
+    <div class="bal-label">${c.eaten > 0 ? 'Bilancia dňa · ' + levelText(lvl, c.balance) : 'Zapíš jedlo a pohyb'}</div>
+    <div class="bal-lines">
+      <span>zjedené${c.kcalFromMacros ? ' (z makier)' : c.day.kcalEst ? ' (≈)' : ''}</span><b class="num">${fmt(c.eaten)}</b>
+      <span>bazál</span><b class="num">${fmtMinus(c.bazal)}</b>
+      ${c.tef ? `<span>trávenie</span><b class="num">${fmtMinus(c.tef)}</b>` : ''}
+      <span>pohyb</span><b class="num">${fmtMinus(c.burned)}</b>
     </div>`;
 
-  const kcalHint = $('[data-hint="kcal"]');
-  kcalHint.textContent = c.macroKcal > 0 ? `z makier: ${fmt(c.macroKcal)} kcal` + (c.day.kcal ? '' : ' (použije sa toto)') : '';
+  // kalórie: koľko som mal mať a koľko mám (ako riadky makier)
+  const kOver = c.eaten > c.targetKcalTotal * 1.05;
+  const kUnder = c.eaten < c.targetKcalTotal * 0.95;
+  // nad cieľ, ale stále v deficite = žltá; prebytok = červená
+  const kCls = kOver ? (c.balance < 0 ? 'ok' : 'bad') : kUnder ? 'ok' : 'good';
+  $('#mt-kcal').innerHTML = `/ ${fmt(c.targetKcalTotal)} <span class="lvl-${kCls}">(${fmtSigned(c.eaten - c.targetKcalTotal)})</span>`;
+  const kBar = $('#mb-kcal');
+  kBar.className = kCls === 'bad' ? 'over' : kCls === 'ok' ? 'under' : '';
+  kBar.style.width = (c.targetKcalTotal > 0 ? Math.min(100, (c.eaten / c.targetKcalTotal) * 100) : 0) + '%';
+  $('#kcal-hint').innerHTML = `cieľ ${fmt(c.targetKcalBase)}${c.burned ? ` + výdaj ${fmt(c.burned)}` : ''}${c.targetTef >= 1 ? ` + trávenie ${fmt(c.targetTef)}` : ''}
+    = ${fmt(c.targetKcalTotal)} kcal${c.macroKcal > 0 ? ` · z makier ${fmt(c.macroKcal)} kcal${c.day.kcal ? '' : ' (použije sa toto)'}` : ''}`;
   $('#kcal').placeholder = c.macroKcal > 0 ? fmt(c.macroKcal) : '';
 
   $('#move-calc').innerHTML = (c.sportSteps ? `
@@ -470,8 +483,6 @@ function updateDayComputed() {
 
   // jedlo a makrá v jednej karte: kruh s kalóriami + riadok na každé makro (políčka sa neprekresľujú, len čísla)
   $('#food-ring').innerHTML = foodRing(c);
-  $('#food-target').innerHTML = `cieľ ${fmt(c.targetKcalBase)}${c.burned ? ` + výdaj ${fmt(c.burned)}` : ''}${c.targetTef >= 1 ? ` + trávenie ${fmt(c.targetTef)}` : ''}
-    = <b class="num">${fmt(c.targetKcalTotal)} kcal</b>`;
   for (const m of C.MACROS) {
     const eaten = c.eatenMacro[m];
     const target = c.targets[m];

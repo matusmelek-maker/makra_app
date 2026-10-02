@@ -109,7 +109,8 @@ main { padding: 0 16px; max-width: 640px; margin: 0 auto; }
 }
 .card.collapsed > h2::before { transform: rotate(-45deg); margin-bottom: 0; }
 .card.collapsed > h2 { margin-bottom: 0; }
-.card.collapsed > :not(h2) { display: none !important; }
+.card.collapsed > :not(h2):not(.keep) { display: none !important; }
+.card.collapsed > .keep { margin: 12px 0 0; }
 
 .muted { color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
@@ -246,8 +247,15 @@ input[type=date] { padding-right: 12px; min-height: 48px; }
 .food-ring .rl.lvl-good { fill: var(--good); }
 .food-ring .rl.lvl-ok { fill: var(--ok); }
 .food-ring .rl.lvl-bad { fill: var(--bad); }
-.food-kcal .hint { min-height: 0; }
-.food-target { font-size: 13px; color: var(--muted); margin-top: 6px; line-height: 1.35; }
+.bal { min-width: 0; }
+.bal-num { font-size: 34px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.05; }
+.bal-num small { font-size: 15px; font-weight: 600; }
+.bal-label { font-size: 13px; color: var(--muted); margin: 2px 0 8px; }
+.bal-lines { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; font-size: 13px; }
+.bal-lines span { color: var(--muted); }
+.bal-lines b { font-weight: 600; text-align: right; }
+.mhint { grid-column: 1 / -1; font-size: 12px; color: var(--muted); margin-top: -2px; }
+.dot-kcal { background: var(--ink); }
 .mrows { display: grid; gap: 12px; }
 .mrow { display: grid; grid-template-columns: minmax(0, 1fr) 104px auto; gap: 6px 10px; align-items: center; }
 .mrow label { font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; min-width: 0; }
