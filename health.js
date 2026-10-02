@@ -39,6 +39,14 @@ function toNum(v) {
   return Number.isFinite(n) ? { n, kj: /kj/i.test(s) } : undefined;
 }
 
+// Zoznam záznamov zo Zdravia ako text (každý na riadku, napr. "120 kcal") -> súčet
+function sumList(v) {
+  const lines = Array.isArray(v) ? v : typeof v === 'string' ? v.split(/[\r\n;]+/) : [];
+  const parts = lines.map(toNum).filter(Boolean);
+  if (!parts.length) return undefined;
+  return { n: parts.reduce((s, p) => s + (p.kj ? p.n / KJ_PER_KCAL : p.n), 0), kj: false, count: parts.length };
+}
+
 function normDate(v) {
   if (typeof v !== 'string') return undefined;
   const s = v.trim();
@@ -62,18 +70,22 @@ export function parseHealthPayload(text) {
 
   const values = {};
   for (const [key, aliases] of Object.entries(KEYS)) {
-    const r = toNum(aliases.map((a) => lower[a]).find((v) => v !== undefined));
+    // prednosť má zoznam záznamov (<kľúč>_list), sčítaný tu v appke; inak hotový súčet zo skratky
+    const list = sumList(aliases.map((a) => lower[a + '_list']).find((v) => v !== undefined));
+    const single = toNum(aliases.map((a) => lower[a]).find((v) => v !== undefined));
+    const r = list && list.n > 0 ? list : single || list;
     if (!r || r.n < 0) continue;
     if (key === 'kcal') values.kcal = Math.round(r.kj ? r.n / KJ_PER_KCAL : r.n);
     else values[key] = Math.round(r.n * 10) / 10;
   }
-  // Skratka niekedy pošle energiu ako 0, hoci makrá prišli -> kalórie nechaj dopočítať z makier
-  const hasMacros = ['carbs', 'protein', 'fat'].some((k) => values[k] > 0);
-  const kcalZero = values.kcal === 0 && hasMacros;
-  if (kcalZero) delete values.kcal;
   if (!Object.keys(values).length) throw new Error('V údajoch chýbajú kalórie aj makrá.');
   if (!Object.values(values).some((v) => v > 0)) throw new Error('V Zdraví zatiaľ nie je za tento deň zapísané žiadne jedlo.');
   if (values.kcal > 15000) throw new Error('Kalórie vyzerajú ako kJ – v Zdraví nastav jednotku energie na kcal.');
 
-  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj, kcalZero };
+  // Skratka niekedy pošle 0, hoci v Zdraví záznamy sú -> nulou neprepisuj (kalórie sa potom dopočítajú z makier)
+  const zeros = Object.keys(values).filter((k) => values[k] === 0);
+  zeros.forEach((k) => delete values[k]);
+  const kcalZero = zeros.includes('kcal');
+
+  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj, kcalZero, zeros };
 }

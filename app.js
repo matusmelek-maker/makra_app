@@ -227,7 +227,7 @@ function applyHealth(text, view) {
   save(true);
   setPendingHealth(null);
   healthPanelOpen = false;
-  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero };
+  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero, zeros: p.zeros };
   currentDate = date;
   renderDay(view);
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
@@ -294,13 +294,19 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
       v.fiber !== undefined && `V ${fmt(v.fiber)} g`,
     ].filter(Boolean).join(' · ');
     const noKcal = v.kcal === undefined;
-    box.innerHTML = `<div class="callout ${noKcal ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
+    const zeroMacros = (lastImport.zeros || []).filter((k) => k !== 'kcal').map((k) => MACRO_LABEL[k].toLowerCase());
+    const notes = [];
+    if (noKcal) {
+      notes.push(lastImport.kcalZero
+        ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: <b class="num">${fmt(C.macroKcal(data.days[lastImport.date] || {}))} kcal</b>.`
+        : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.');
+    }
+    if (zeroMacros.length) notes.push(`Ako 0 prišlo: ${zeroMacros.join(', ')} – tie som neprepísal.`);
+    box.innerHTML = `<div class="callout ${notes.length ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
       <div style="display:flex;gap:8px;align-items:center;justify-content:space-between">
-        <span>Zo Zdravia: <b class="num">${parts}</b></span>
+        <span>Zo Zdravia: <b class="num">${parts || '—'}</b></span>
         <button class="btn small secondary" id="health-undo">Vrátiť</button></div>
-      ${noKcal ? `<div style="margin-top:8px">${lastImport.kcalZero
-        ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: <b class="num">${fmt(C.macroKcal(lastImport.values))} kcal</b>.`
-        : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.'}</div>` : ''}
+      ${notes.map((n) => `<div style="margin-top:8px">${n}</div>`).join('')}
       ${rawDetails(lastImport.raw)}
     </div>`;
     $('#health-undo', box).addEventListener('click', () => {

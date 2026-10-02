@@ -66,6 +66,14 @@ Pre každé makro pridaj **Nájsť zdravotné vzorky** (rovnaký filter dátumu 
    | Číslo | `protein` | premenná **protein** |
    | Číslo | `fat` | premenná **fat** |
    | Číslo | `fiber` | premenná **fiber** |
+   | Text | `kcal_list` | výsledok **Nájsť zdravotné vzorky** (Energia v potrave) |
+   | Text | `carbs_list` | výsledok **Nájsť zdravotné vzorky** (Sacharidy) |
+   | Text | `protein_list` | výsledok **Nájsť zdravotné vzorky** (Bielkoviny) |
+   | Text | `fat_list` | výsledok **Nájsť zdravotné vzorky** (Tuky) |
+   | Text | `fiber_list` | výsledok **Nájsť zdravotné vzorky** (Vláknina) |
+
+   Položky `…_list` pošlú celý zoznam záznamov a appka si ich sčíta sama. Je to spoľahlivejšie,
+   lebo „Vypočítať štatistiku“ občas vráti 0, hoci záznamy v Zdraví sú.
 
 9. Pridaj **Kopírovať do schránky** (*Copy to Clipboard*) → vstup **Slovník**.
 10. *(voliteľné)* **Zobraziť oznámenie**: `Hotovo – vráť sa do Makrá`
