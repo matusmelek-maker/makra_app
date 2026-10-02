@@ -501,6 +501,100 @@ function macroAdvice(c) {
   return { lines, level };
 }
 
+// Kalkulačka makier: z parametrov vyráta, koľko čoho zjesť (rovnaké vzorce ako zvyšok appky)
+function renderCalc(card) {
+  const s = data.settings;
+  const t = C.today();
+  const w = C.weightAt(data, t);
+  const bazal = C.valueAt(s.bazal, t);
+  const base = C.MACROS.reduce((sum, m) => sum + s.targets[m] * C.KCAL_PER_G[m], 0);
+  // priemer krokov bez športu za posledných 14 dní so zápisom
+  const recent = Array.from({ length: 14 }, (_, i) => C.computeDay(data, C.addDays(t, -i - 1))).filter((d) => d.walkSteps > 0);
+  const avgSteps = recent.length ? Math.round(recent.reduce((a, d) => a + d.walkSteps, 0) / recent.length / 500) * 500 : 6000;
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const deficit0 = bazal - base > 0 ? Math.round(bazal - base) : 300;
+
+  card.innerHTML = `
+    <h2>Kalkulačka makier</h2>
+    <p class="muted" style="margin-top:0;font-size:14px">Zadaj parametre a uvidíš, koľko čoho zjesť. Predvyplnené sú tvoje
+      aktuálne hodnoty.</p>
+    <div class="fields">
+      ${field({ id: 'k-weight', label: 'Váha', unit: 'kg', value: w, hint: null })}
+      ${field({ id: 'k-bazal', label: 'Bazál', unit: 'kcal', value: bazal, mode: 'numeric', hint: null })}
+      ${field({ id: 'k-tef', label: 'Trávenie', unit: '%', value: C.valueAt(s.tef, t) || 0, hint: null })}
+      ${field({ id: 'k-deficit', label: 'Deficit', unit: 'kcal/deň', value: deficit0, mode: 'numeric', hint: '' })}
+      ${field({ id: 'k-steps', label: 'Kroky bez športu', unit: 'krokov', value: avgSteps, mode: 'numeric', hint: null })}
+      ${field({ id: 'k-gym', label: 'Posilka', unit: 'kcal', value: 0, mode: 'numeric', hint: null })}
+      ${field({ id: 'k-sport', label: 'Šport', unit: 'kcal', value: 0, mode: 'numeric', hint: null })}
+      ${field({ id: 'k-fiber', label: 'Vláknina', unit: 'g', value: s.targets.fiber, mode: 'numeric', hint: null })}
+      ${field({ id: 'k-protein', label: 'Bielkoviny', unit: 'g/kg', value: r2(s.targets.protein / w), hint: '' })}
+      ${field({ id: 'k-fat', label: 'Tuky', unit: 'g/kg', value: r2(s.targets.fat / w), hint: '' })}
+    </div>
+    <div id="k-out" style="margin-top:12px"></div>
+    <div class="btn-row" style="margin-top:12px"><button class="btn secondary" id="k-save">Uložiť ako môj denný cieľ</button></div>`;
+
+  const num = (id, def = 0) => parseNum($('#' + id, card).value) ?? def;
+  const kc = C.KCAL_PER_G;
+  let last = null;
+
+  const update = () => {
+    const weight = num('k-weight', w);
+    const bz = num('k-bazal', bazal);
+    const tef = Math.min(30, Math.max(0, num('k-tef'))) / 100;
+    const deficit = num('k-deficit');
+    const move = num('k-steps') * C.valueAt(s.stepCoef, t) * weight + num('k-gym') + num('k-sport');
+    const total = (bz + move - deficit) / (1 - tef); // jedlo − trávenie = bazál + pohyb − deficit
+    const P = num('k-protein') * weight;
+    const F = num('k-fat') * weight;
+    const V = num('k-fiber');
+    const S = (total - P * kc.protein - F * kc.fat - V * kc.fiber) / kc.carbs;
+    // denný cieľ v appke = deň bez pohybu a bez trávenia (to appka pripočíta sama podľa dňa)
+    const restCarbs = (bz - deficit - P * kc.protein - F * kc.fat - V * kc.fiber) / kc.carbs;
+    last = { P, F, V, S, restCarbs, deficit, bz };
+
+    $('[data-hint="k-protein"]', card).textContent = `= ${fmt(P)} g · výskum: 1,6–2,2 g/kg (Morton 2018)`;
+    $('[data-hint="k-fat"]', card).textContent = `= ${fmt(F)} g · EFSA: 20–35 % energie`;
+    $('[data-hint="k-deficit"]', card).textContent = `≈ ${fmt((deficit * 7) / C.KCAL_PER_KG_FAT, 2)} kg tuku za týždeň`;
+
+    const row = (label, g, kcal) => `<span>${label}</span><span class="num">${g === null ? '' : fmt(g) + ' g · '}${fmt(kcal)} kcal${total > 0 ? ` <small class="muted">(${fmt((kcal / total) * 100)} %)</small>` : ''}</span>`;
+    const warn = [];
+    if (S < 50) warn.push(`Na sacharidy zostáva len ${fmt(Math.max(0, S))} g – zníž deficit alebo tuky.`);
+    if (deficit > 400) warn.push('Deficit nad 400 kcal je podľa tvojich pravidiel už veľa.');
+    if (deficit < 0) warn.push('Záporný deficit = prebytok (priberanie).');
+    $('#k-out', card).innerHTML = `
+      <div class="callout bg-${warn.length ? 'ok' : 'good'}" style="margin:0">
+        <div>Zjedz <b class="num" style="font-size:20px">${fmt(total)} kcal</b> denne</div>
+        <div class="kv" style="margin-top:8px">
+          ${row('Sacharidy', Math.max(0, S), Math.max(0, S) * kc.carbs)}
+          ${row('Bielkoviny', P, P * kc.protein)}
+          ${row('Tuky', F, F * kc.fat)}
+          ${row('Vláknina', V, V * kc.fiber)}
+        </div>
+        <div class="muted" style="font-size:13px;margin-top:8px">Výdaj: bazál ${fmt(bz)} + pohyb ${fmt(move)} + trávenie ${fmt(total * tef)} kcal
+          = ${fmt(bz + move + total * tef)} kcal · deficit ${fmtSigned(-deficit)} kcal</div>
+        ${warn.map((x) => `<div style="margin-top:6px">${x}</div>`).join('')}
+      </div>`;
+  };
+  $$('input', card).forEach((inp) => inp.addEventListener('input', update));
+  update();
+
+  $('#k-save', card).addEventListener('click', () => {
+    const { P, F, V, restCarbs, deficit, bz } = last;
+    if (restCarbs < 0) return toast('Sacharidy by vyšli záporné – uprav parametre');
+    const tg = { carbs: Math.round(restCarbs), protein: Math.round(P), fat: Math.round(F), fiber: Math.round(V) };
+    const bazNote = Math.round(bz) !== Math.round(bazal) ? `\n\nPozor: bazál v nastaveniach ostáva ${fmt(bazal)} kcal (v kalkulačke máš ${fmt(bz)}).` : '';
+    if (!confirm(`Nastaviť denný cieľ (deň bez pohybu, deficit ${fmt(deficit)} kcal)?\n\n` +
+      `Sacharidy ${tg.carbs} g · Bielkoviny ${tg.protein} g · Tuky ${tg.fat} g · Vláknina ${tg.fiber} g\n\n` +
+      `Toto je základ bez pohybu a bez trávenia – tie appka pripočíta každý deň sama. Pri dni bez pohybu ` +
+      `s trávením to bude ${fmt((bz - deficit) / (1 - num('k-tef') / 100))} kcal a sacharidy ` +
+      `≈ ${fmt(tg.carbs + ((bz - deficit) / (1 - num('k-tef') / 100) - (bz - deficit)) / kc.carbs)} g.${bazNote}`)) return;
+    s.targets = tg;
+    save(true);
+    toast('Denný cieľ uložený');
+    render();
+  });
+}
+
 // ---------- WEEKS ----------
 function renderWeeks(view) {
   const weeks = C.computeWeeks(data).filter((w) => w.hasData || w.monday === C.mondayOf(C.today())).reverse();
@@ -576,6 +670,8 @@ function renderGoal(view) {
       </div>
     </section>
 
+    <section class="card" id="calc-card"></section>
+
     <section class="card">
       <h2>Zostávajúce kalórie do cieľa</h2>
       <div id="chart-remaining"></div>
@@ -604,6 +700,7 @@ function renderGoal(view) {
       <ul class="list" id="meas-list"></ul>
     </section>`;
 
+  renderCalc($('#calc-card', view));
   lineChart($('#chart-remaining', view), g.series.map((p) => ({ date: p.date, y: p.remaining })), { unit: 'kcal', dec: 0, area: true });
   lineChart($('#chart-weight', view), weightSeries, { unit: 'kg', dec: 1 });
   renderMeasurements();
