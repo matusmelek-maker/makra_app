@@ -60,6 +60,20 @@ export function eatenKcal(day) {
   return macroKcal(day);
 }
 
+// Denný cieľ makier pre deň bez pohybu a bez trávenia. S plánom z kalkulačky (sekcia Cieľ) sa ráta
+// z váhy a bazálu k dátumu, bez plánu sú to pevné gramy ako v Exceli.
+export function baseTargetsAt(data, date, weight = weightAt(data, date)) {
+  const s = data.settings;
+  const p = s.plan;
+  if (!p) return s.targets;
+  const protein = p.proteinPerKg * weight;
+  const fat = p.fatPerKg * weight;
+  const fiber = p.fiber;
+  const carbs = (valueAt(s.bazal, date) - p.deficit - protein * KCAL_PER_G.protein - fat * KCAL_PER_G.fat
+    - fiber * KCAL_PER_G.fiber) / KCAL_PER_G.carbs;
+  return { carbs: Math.max(0, carbs), protein, fat, fiber };
+}
+
 // Jeden deň = riadok zapis_minusovych_kalorii + bunka v suhrn!S:Y
 export function computeDay(data, date) {
   const day = data.days[date] || {};
@@ -83,7 +97,7 @@ export function computeDay(data, date) {
   const balance = eaten - burned - bazal - tef;
 
   // zapis makra
-  const t = s.targets;
+  const t = baseTargetsAt(data, date, weight);
   const targetKcalBase = MACROS.reduce((sum, m) => sum + t[m] * KCAL_PER_G[m], 0); // H
   // s trávením môžeš zjesť viac pri rovnakom deficite: jedlo × (1 − TEF) = cieľ + výdaj
   const targetKcalTotal = (targetKcalBase + burned) / (1 - tefPct / 100); // J (+ trávenie)
@@ -104,7 +118,7 @@ export function computeDay(data, date) {
     carbsLeft: carbsTarget - eatenMacro.carbs, // R
     // tuky a bielkoviny nad cieľ zaberú časť kalórií určených na sacharidy
     extraKcal: ['fat', 'protein'].reduce((sum, m) => sum + Math.max(0, diff[m]) * KCAL_PER_G[m], 0),
-    hasMacros, eatenMacro, targets, diff,
+    hasMacros, eatenMacro, targets, diff, baseTargets: t,
   };
 }
 
