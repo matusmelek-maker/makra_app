@@ -167,6 +167,7 @@ export function computeGoal(data) {
 // Farby podľa podmieneného formátovania v Exceli
 export function dayLevel(v, hasData = true) {
   if (!hasData) return 'none';
+  v = Math.round(v); // podľa zobrazeného čísla, aby „0“ nebola červená
   if (v < -400) return 'great';
   if (v < -100) return 'good';
   if (v <= 0) return 'ok';

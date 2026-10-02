@@ -6,7 +6,8 @@ const BACKUP_KEY = 'makra-last-backup';
 const DAY_NAMES = ['nedeľa', 'pondelok', 'utorok', 'streda', 'štvrtok', 'piatok', 'sobota'];
 const DAY_SHORT = ['Ne', 'Po', 'Ut', 'St', 'Št', 'Pi', 'So'];
 const MACRO_LABEL = { carbs: 'Sacharidy', protein: 'Bielkoviny', fat: 'Tuky', fiber: 'Vláknina' };
-const LEVEL_TEXT = { great: 'výborný deficit', good: 'dobrý deficit', ok: 'mierny deficit', bad: 'prebytok', none: 'bez zápisu' };
+const LEVEL_TEXT = { great: 'priveľký deficit – už je to veľa', good: 'výborný deficit', ok: 'mierny deficit', bad: 'prebytok', none: 'bez zápisu' };
+const levelText = (lvl, balance) => (lvl !== 'none' && Math.round(balance) === 0 ? 'nula – rovnováha' : LEVEL_TEXT[lvl]);
 
 // ---------- storage ----------
 function load() {
@@ -146,7 +147,7 @@ function renderDay(view) {
         ${field({ id: 'gym', label: 'Posilka', unit: 'kcal', value: day.gym, mode: 'numeric' })}
         ${field({ id: 'sport', label: 'Šport (beh, futbal…)', unit: 'kcal', value: day.sport, mode: 'numeric' })}
         ${field({ id: 'steps', label: 'Kroky bez športovania', unit: 'krokov', value: day.steps, mode: 'numeric', cls: 'full' })}
-        ${field({ id: 'weight', label: 'Váha', unit: 'kg', value: day.weight, placeholder: fmt(prevWeight, 1), hint: 'prázdne = posledná zapísaná', cls: 'full' })}
+        ${field({ id: 'weight', label: 'Váha', unit: 'kg', value: day.weight, placeholder: fmt(prevWeight, 1), hint: 'prázdne = posledná zapísaná · z váhy sa rátajú kalórie z krokov', cls: 'full' })}
       </div>
       <div id="move-calc"></div>
     </section>
@@ -357,7 +358,7 @@ function updateDayComputed() {
 
   $('#hero').innerHTML = `
     <div class="big num lvl-${lvl}">${c.eaten > 0 ? fmtSigned(c.balance) : '—'} <small style="font-size:18px">kcal</small></div>
-    <div class="label">${c.eaten > 0 ? 'Bilancia dňa · ' + LEVEL_TEXT[lvl] : 'Zapíš zjedené kalórie a pohyb'}</div>
+    <div class="label">${c.eaten > 0 ? 'Bilancia dňa · ' + levelText(lvl, c.balance) : 'Zapíš zjedené kalórie a pohyb'}</div>
     <div class="breakdown">
       <div><b class="num">${fmt(c.eaten)}</b><span>zjedené${c.kcalFromMacros ? ' (z makier)' : c.day.kcalEst ? ' (dopočítané)' : ''}</span></div>
       <div><b class="num">${fmtMinus(c.bazal)}</b><span>bazál</span></div>
@@ -369,7 +370,7 @@ function updateDayComputed() {
   $('#kcal').placeholder = c.macroKcal > 0 ? fmt(c.macroKcal) : '';
 
   $('#move-calc').innerHTML = `
-    <div class="calc-line"><span class="muted">Kroky → kalórie <small>(${fmt(c.stepIndex, 4)} kcal/krok)</small></span><b class="num">${fmt(c.stepKcal)} kcal</b></div>
+    <div class="calc-line"><span class="muted">Kroky → kalórie <small>(${fmt(c.stepIndex, 4)} kcal/krok pri ${fmt(c.weight, 1)} kg)</small></span><b class="num">${fmt(c.stepKcal)} kcal</b></div>
     <div class="calc-line"><span class="muted">Výdaj pohybom spolu</span><b class="num">${fmt(c.burned)} kcal</b></div>`;
 
   const bars = C.MACROS.map((m) => {
@@ -415,8 +416,8 @@ function renderWeeks(view) {
     return;
   }
   const legend = `<div class="legend" style="margin-top:4px">
-    <span class="bg-great">deň &lt; −400</span><span class="bg-good">−400 až −100</span>
-    <span class="bg-ok">−100 až 0</span><span class="bg-bad">&gt; 0</span></div>`;
+    <span class="bg-great">deň &lt; −400 priveľa</span><span class="bg-good">−400 až −100 výborne</span>
+    <span class="bg-ok">−100 až 0 mierne</span><span class="bg-bad">&gt; 0 prebytok</span></div>`;
   view.innerHTML = legend + weeks.map((w) => {
     const lvl = C.weekLevel(w.result, w.hasData);
     const chips = w.days.map((d) => {
@@ -628,6 +629,7 @@ function renderSettings(view) {
         <div class="field"><input type="date" value="${h.from}" data-k="from" aria-label="Platí od"></div>
         <div class="field"><div class="wrap"><input type="text" inputmode="${mode}" value="${inputVal(h.value)}" data-k="value" aria-label="${label}"><span class="unit">${unit}</span></div></div>
       </div>`).join('')}
+    <div id="prev-${key}" style="margin-bottom:8px"></div>
     <div class="btn-row" style="margin-bottom:12px">
       <button class="btn small secondary" data-add-hist="${key}">+ zmena od dátumu</button>
       ${s[key].length > 1 ? `<button class="btn small danger" data-rm-hist="${key}">odobrať poslednú</button>` : ''}
@@ -639,6 +641,7 @@ function renderSettings(view) {
       <div class="fields">
         <div class="field full"><label for="s-start">Začiatok sledovania</label><input id="s-start" type="date" value="${s.startDate}"></div>
         ${field({ id: 's-weight', label: 'Počiatočná váha', unit: 'kg', value: s.startWeight, hint: null })}
+        ${field({ id: 's-curweight', label: 'Aktuálna váha', unit: 'kg', value: data.days[C.today()]?.weight, placeholder: fmt(C.weightAt(data, C.today()), 1), hint: '' })}
         ${field({ id: 's-goal', label: 'Cieľ schudnúť tuku', unit: 'kg', value: s.goalFatKg, hint: `= ${fmt(s.goalFatKg * C.KCAL_PER_KG_FAT)} kcal` })}
       </div>
     </section>
@@ -689,7 +692,35 @@ function renderSettings(view) {
   const bind = (id, fn) => $('#' + id, view).addEventListener('input', (e) => { fn(e.target.value); save(); });
   bind('s-start', (v) => v && (s.startDate = v));
   bind('s-shortcut', (v) => { s.shortcutName = v.trim() || 'Makrá zo Zdravia'; });
-  bind('s-weight', (v) => { const n = parseNum(v); if (n) s.startWeight = n; });
+  bind('s-weight', (v) => { const n = parseNum(v); if (n) s.startWeight = n; updPrev(); });
+  // aktuálna váha = váha zapísaná k dnešnému dňu (rovnako ako pole Váha v sekcii Deň)
+  bind('s-curweight', (v) => {
+    const t = C.today();
+    const n = parseNum(v);
+    const day = { ...(data.days[t] || {}) };
+    if (n) day.weight = n;
+    else delete day.weight;
+    if (Object.keys(day).length) data.days[t] = day;
+    else delete data.days[t];
+    updPrev();
+  });
+  // čo sa z nastavení práve ráta – aby bolo vidno, že zmena funguje
+  function updPrev() {
+    const t = C.today();
+    const w = C.weightAt(data, t);
+    const k = C.valueAt(s.stepCoef, t);
+    let wDate = null;
+    for (const [d, day] of Object.entries(data.days)) if (day.weight && d <= t && (!wDate || d > wDate)) wDate = d;
+    $('[data-hint="s-curweight"]', view).textContent = wDate
+      ? `posledná zapísaná ${dmy(wDate)} · zmena sa zapíše k dnešku`
+      : 'zatiaľ nezapísaná – použije sa počiatočná · zmena sa zapíše k dnešku';
+    $('#prev-bazal', view).innerHTML = `<div class="calc-line"><span class="muted">Dnes platí</span>
+      <b class="num">${fmt(C.valueAt(s.bazal, t))} kcal/deň</b></div>`;
+    $('#prev-stepCoef', view).innerHTML = `<div class="calc-line"><span class="muted">Dnes: ${fmt(k, 6)} × ${fmt(w, 1)} kg</span>
+      <b class="num">${fmt(k * w, 4)} kcal/krok</b></div>
+      <div class="calc-line"><span class="muted">10 000 krokov</span><b class="num">${fmt(k * w * 1e4)} kcal</b></div>`;
+  }
+  updPrev();
   bind('s-goal', (v) => {
     const n = parseNum(v);
     if (n) s.goalFatKg = n;
@@ -709,6 +740,7 @@ function renderSettings(view) {
       else { const n = parseNum(inp.value); if (n) h.value = n; }
       arr.sort((a, b) => a.from.localeCompare(b.from));
       save();
+      updPrev();
     }));
   });
   $$('[data-add-hist]', view).forEach((b) => b.addEventListener('click', () => {
