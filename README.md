@@ -1,0 +1,34 @@
+# Makrá – kalórie, makrá a pohyb
+
+Mobilná webová aplikácia (PWA), ktorá nahrádza Excel „kalorie - ja“.
+Beží zadarmo cez GitHub Pages, funguje offline a dá sa pridať na plochu telefónu ako appka.
+
+## Čo počíta (rovnako ako Excel)
+- **Deň**: bilancia = zjedené − bazál (len ak je zapísané jedlo) − posilka − šport − kroky × koeficient × váha
+- **Makrá**: sacharidy = cieľ + výdaj pohybom / 4,1; odchýlky bielkovín, tukov, vlákniny
+- **Týždne**: súčet Po–Ne s farbami (< −2800 modrá, do −700 zelená, do 0 žltá, > 0 červená)
+- **Cieľ**: zostáva spáliť = kg tuku × 7700 + súčet bilancií; graf, váha, merania InBody
+- Bazál a koeficient krokov sa dajú meniť **od dátumu** (staré dni sa neprepočítajú)
+
+## Jedlo z Kalorických tabuliek (iPhone)
+Kalorické tabuľky → Apple Zdravie → skratka „Makrá zo Zdravia“ → schránka → v appke **Zo Zdravia**.
+Návod: [NAVOD-SKRATKA.md](NAVOD-SKRATKA.md)
+
+## Dáta
+Ukladajú sa iba v telefóne (localStorage). Zálohu stiahneš v **Nastavenia → Stiahnuť zálohu** (JSON).
+Prevod starého Excelu: `python tools/excel_to_json.py "kalorie.xlsx" moje-data/makra-import.json`
+a potom v appke **Nahrať zálohu**.
+
+## Spustenie lokálne
+```
+python -m http.server 8765
+```
+a otvor http://localhost:8765
+
+## Zverejnenie (GitHub Pages)
+1. Vytvor repozitár na GitHube a pushni tento priečinok (priečinok `moje-data/` je v .gitignore).
+2. Settings → Pages → Source: *Deploy from a branch*, branch `main`, priečinok `/ (root)`.
+3. Appka bude na `https://<meno>.github.io/<repo>/`.
+4. V telefóne: iPhone – Safari → Zdieľať → *Pridať na plochu*; Android – Chrome → ⋮ → *Inštalovať aplikáciu*.
+
+Pri zmene súborov zvýš `VERSION` v `sw.js`, aby sa telefón aktualizoval.

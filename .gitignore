@@ -1,0 +1,5 @@
+# osobné dáta – nikdy nedávať na GitHub
+moje-data/
+*.xlsx
+*.json.bak
+.claude/
