@@ -58,6 +58,18 @@ Pridaj **Nájsť zdravotné vzorky** → typ **Kroky** (*Steps*), rovnaký filte
 Appka zapíše **Kroky za deň**. Kroky pri behu zapíš do poľa *z toho pri behu/športe* – appka ich odpočíta,
 lebo beh má kalórie zvlášť v poli Šport.
 
+## Krok 4c – posilka z appky Hevy (voliteľné)
+Hevy zapisuje každý tréning do Zdravia ako *Aktívnu energiu* (v Hevy: Profil → ⚙ → Apple Health → zapni
+*Apple Health – Active Calories*). V Zdraví nastav **Aktivita → Aktívna energia → Jednotka → kcal**.
+1. **Nájsť zdravotné vzorky** → typ **Aktívna energia** (*Active Energy*), rovnaký filter dátumu
+   + **Pridať filter** → **Zdroj** → **je** → **Hevy** (bez toho by sa započítala aj chôdza z iPhonu).
+2. **Získať podrobnosti o zdravotnej vzorke** → **Hodnota**.
+3. **Vypočítať štatistiku → Súčet** z **Hodnota**.
+4. V Slovníku položka **Číslo** · `gym` · tento **Súčet**. Appka zapíše pole **Posilka**
+   (v deň bez tréningu príde 0 a pole ostane nezmenené).
+
+Nové akcie Skratky pridávajú na koniec – **podrž ich a potiahni nad Slovník**, inak ich Slovník nevidí.
+
 ---
 
 ## Krok 5 – zbalenie a kopírovanie
