@@ -68,7 +68,10 @@ export function computeDay(data, date) {
   const stepCoef = valueAt(s.stepCoef, date);
   const stepIndex = stepCoef * weight; // E = koef * váha
   const steps = Number(day.steps) || 0;
-  const stepKcal = steps * stepIndex; // F = D * E
+  // kroky pri behu/športe majú kalórie už v Športe -> do krokov ich nerátaj (inak by sa rátali 2×)
+  const sportSteps = Math.min(steps, Number(day.sportSteps) || 0);
+  const walkSteps = steps - sportSteps; // = „kroky bez športovania“ z Excelu
+  const stepKcal = walkSteps * stepIndex; // F = D * E
   const gym = Number(day.gym) || 0;
   const sport = Number(day.sport) || 0;
   const burned = gym + sport + stepKcal; // I = SUM(F, C, B)
@@ -86,7 +89,7 @@ export function computeDay(data, date) {
   const diff = Object.fromEntries(MACROS.map((m) => [m, eatenMacro[m] - targets[m]])); // T..W
 
   return {
-    date, day, weight, stepCoef, stepIndex, steps, stepKcal, gym, sport, burned,
+    date, day, weight, stepCoef, stepIndex, steps, sportSteps, walkSteps, stepKcal, gym, sport, burned,
     eaten, kcalFromMacros: !day.kcal && eaten > 0, macroKcal: macroKcal(day),
     bazal, balance, hasData: eaten > 0 || burned > 0,
     targetKcalBase, targetKcalTotal: burned ? targetKcalBase + burned : 0, // J
@@ -120,7 +123,7 @@ export function computeWeeks(data) {
       gym: sum((d) => d.gym), // L
       sport: sum((d) => d.sport), // M
       stepKcal: sum((d) => d.stepKcal), // N
-      steps: sum((d) => d.steps), // O
+      steps: sum((d) => d.walkSteps), // O = kroky bez športovania
       burned: sum((d) => d.burned), // P
       result: sum((d) => d.balance), // Q
       hasData: days.some((d) => d.hasData),

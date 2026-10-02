@@ -146,7 +146,8 @@ function renderDay(view) {
       <div class="fields">
         ${field({ id: 'gym', label: 'Posilka', unit: 'kcal', value: day.gym, mode: 'numeric' })}
         ${field({ id: 'sport', label: 'Šport (beh, futbal…)', unit: 'kcal', value: day.sport, mode: 'numeric' })}
-        ${field({ id: 'steps', label: 'Kroky bez športovania', unit: 'krokov', value: day.steps, mode: 'numeric', cls: 'full' })}
+        ${field({ id: 'steps', label: 'Kroky za deň', unit: 'krokov', value: day.steps, mode: 'numeric', hint: 'všetky, aj z behu' })}
+        ${field({ id: 'sportSteps', label: 'z toho pri behu/športe', unit: 'krokov', value: day.sportSteps, mode: 'numeric', hint: 'odpočítajú sa · beh ≈ 160 krokov/min' })}
         ${field({ id: 'weight', label: 'Váha', unit: 'kg', value: day.weight, placeholder: fmt(prevWeight, 1), hint: 'prázdne = posledná zapísaná · z váhy sa rátajú kalórie z krokov', cls: 'full' })}
       </div>
       <div id="move-calc"></div>
@@ -167,7 +168,7 @@ function renderDay(view) {
   $('#gotoday', view)?.addEventListener('click', () => { currentDate = C.today(); renderDay(view); });
   $('#pick', view).addEventListener('change', (e) => { if (e.target.value) { currentDate = e.target.value; renderDay(view); } });
 
-  for (const key of ['kcal', 'carbs', 'protein', 'fat', 'fiber', 'gym', 'sport', 'steps', 'weight']) {
+  for (const key of ['kcal', 'carbs', 'protein', 'fat', 'fiber', 'gym', 'sport', 'steps', 'sportSteps', 'weight']) {
     $('#' + key, view).addEventListener('input', (e) => setDayField(key, parseNum(e.target.value)));
   }
   $('#note', view).addEventListener('input', (e) => setDayField('note', e.target.value.trim() || undefined));
@@ -369,7 +370,8 @@ function updateDayComputed() {
   kcalHint.textContent = c.macroKcal > 0 ? `z makier: ${fmt(c.macroKcal)} kcal` + (c.day.kcal ? '' : ' (použije sa toto)') : '';
   $('#kcal').placeholder = c.macroKcal > 0 ? fmt(c.macroKcal) : '';
 
-  $('#move-calc').innerHTML = `
+  $('#move-calc').innerHTML = (c.sportSteps ? `
+    <div class="calc-line"><span class="muted">Kroky bez športovania <small>(${fmt(c.steps)} − ${fmt(c.sportSteps)})</small></span><b class="num">${fmt(c.walkSteps)}</b></div>` : '') + `
     <div class="calc-line"><span class="muted">Kroky → kalórie <small>(${fmt(c.stepIndex, 4)} kcal/krok pri ${fmt(c.weight, 1)} kg)</small></span><b class="num">${fmt(c.stepKcal)} kcal</b></div>
     <div class="calc-line"><span class="muted">Výdaj pohybom spolu</span><b class="num">${fmt(c.burned)} kcal</b></div>`;
 
