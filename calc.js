@@ -77,7 +77,10 @@ export function computeDay(data, date) {
   const burned = gym + sport + stepKcal; // I = SUM(F, C, B)
   const eaten = eatenKcal(day);
   const bazal = eaten ? valueAt(s.bazal, date) : 0; // bazál sa ráta len keď je zapísané jedlo
-  const balance = eaten - burned - bazal;
+  // trávenie potravy (TEF): % zo zjedených kalórií, platí od dátumu (v Exceli nebolo -> predvolene 0 %)
+  const tefPct = valueAt(s.tef || [], date) || 0;
+  const tef = (eaten * tefPct) / 100;
+  const balance = eaten - burned - bazal - tef;
 
   // zapis makra
   const t = s.targets;
@@ -91,7 +94,7 @@ export function computeDay(data, date) {
   return {
     date, day, weight, stepCoef, stepIndex, steps, sportSteps, walkSteps, stepKcal, gym, sport, burned,
     eaten, kcalFromMacros: !day.kcal && eaten > 0, macroKcal: macroKcal(day),
-    bazal, balance, hasData: eaten > 0 || burned > 0,
+    bazal, tef, tefPct, balance, hasData: eaten > 0 || burned > 0,
     targetKcalBase, targetKcalTotal: burned ? targetKcalBase + burned : 0, // J
     carbsLeft: carbsTarget - eatenMacro.carbs, // R
     // tuky a bielkoviny nad cieľ zaberú časť kalórií určených na sacharidy
@@ -122,6 +125,7 @@ export function computeWeeks(data) {
       days,
       eaten: sum((d) => d.eaten), // I
       bazal: sum((d) => d.bazal), // J
+      tef: sum((d) => d.tef),
       gym: sum((d) => d.gym), // L
       sport: sum((d) => d.sport), // M
       stepKcal: sum((d) => d.stepKcal), // N
@@ -197,6 +201,7 @@ export function defaultData() {
       startWeight: 100,
       goalFatKg: 10,
       stepCoef: [{ from: t, value: 0.000595 }],
+      tef: [{ from: t, value: 0 }],
       targets: { carbs: 110, protein: 140, fat: 70, fiber: 25 },
       shortcutName: 'Makrá zo Zdravia',
     },

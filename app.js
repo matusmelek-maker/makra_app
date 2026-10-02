@@ -22,10 +22,14 @@ function load() {
 }
 function migrate(d) {
   const def = C.defaultData();
+  // trávenie pribudlo neskôr: staré dáta dostanú 0 % od začiatku sledovania
+  if (d.settings && !d.settings.tef && d.settings.startDate) d.settings.tef = [{ from: d.settings.startDate, value: 0 }];
   d.settings = { ...def.settings, ...d.settings };
   d.settings.targets = { ...def.settings.targets, ...d.settings.targets };
-  for (const k of ['bazal', 'stepCoef']) {
-    if (!Array.isArray(d.settings[k])) d.settings[k] = [{ from: d.settings.startDate, value: Number(d.settings[k]) }];
+  for (const k of ['bazal', 'stepCoef', 'tef']) {
+    if (!Array.isArray(d.settings[k]) || !d.settings[k].length) {
+      d.settings[k] = [{ from: d.settings.startDate, value: Number(d.settings[k]) || 0 }];
+    }
   }
   d.days ||= {};
   d.measurements ||= [];
@@ -370,9 +374,10 @@ function updateDayComputed() {
   $('#hero').innerHTML = `
     <div class="big num lvl-${lvl}">${c.eaten > 0 ? fmtSigned(c.balance) : '—'} <small style="font-size:18px">kcal</small></div>
     <div class="label">${c.eaten > 0 ? 'Bilancia dňa · ' + levelText(lvl, c.balance) : 'Zapíš zjedené kalórie a pohyb'}</div>
-    <div class="breakdown">
+    <div class="breakdown${c.tef ? ' four' : ''}">
       <div><b class="num">${fmt(c.eaten)}</b><span>zjedené${c.kcalFromMacros ? ' (z makier)' : c.day.kcalEst ? ' (dopočítané)' : ''}</span></div>
       <div><b class="num">${fmtMinus(c.bazal)}</b><span>bazál</span></div>
+      ${c.tef ? `<div><b class="num">${fmtMinus(c.tef)}</b><span>trávenie</span></div>` : ''}
       <div><b class="num">${fmtMinus(c.burned)}</b><span>pohyb</span></div>
     </div>`;
 
@@ -487,7 +492,8 @@ function renderWeeks(view) {
         <div class="kv">
           <span>Zjedené spolu</span><span>${fmt(w.eaten)} kcal</span>
           <span>Bazál (${w.days.filter((d) => d.bazal).length} dní)</span><span>${fmtMinus(w.bazal)} kcal</span>
-          <span>Kalórie mínus bazál</span><span>${fmtSigned(w.eaten - w.bazal)} kcal</span>
+          ${w.tef ? `<span>Trávenie potravy</span><span>${fmtMinus(w.tef)} kcal</span>` : ''}
+          <span>Kalórie mínus bazál${w.tef ? ' a trávenie' : ''}</span><span>${fmtSigned(w.eaten - w.bazal - w.tef)} kcal</span>
           <span>Posilka</span><span>${fmtMinus(w.gym)} kcal</span>
           <span>Športovanie</span><span>${fmtMinus(w.sport)} kcal</span>
           <span>Kroky (${fmt(w.steps)})</span><span>${fmtMinus(w.stepKcal)} kcal</span>
@@ -703,6 +709,10 @@ function renderSettings(view) {
       <h2>Výpočty <small>platí od dátumu</small></h2>
       ${history('bazal', 'Bazálny metabolizmus', 'kcal', 'numeric')}
       ${history('stepCoef', 'Koeficient krokov (× váha = kcal/krok)', '', 'decimal')}
+      ${history('tef', 'Trávenie potravy (TEF)', '% z jedla', 'decimal')}
+      <p class="muted" style="font-size:13px;margin:0">Trávením telo spáli časť zjedenej energie – bielkoviny ~25 %,
+        sacharidy ~8 %, tuky ~3 %, spolu bežne okolo 10 %. V Exceli nebolo, preto je predvolene 0 %.
+        Zapni ho cez <b>+ zmena od dátumu</b>, staré dni ostanú rovnaké.</p>
     </section>
 
     <section class="card">
@@ -771,6 +781,9 @@ function renderSettings(view) {
       : 'zatiaľ nezapísaná – použije sa počiatočná · zmena sa zapíše k dnešku';
     $('#prev-bazal', view).innerHTML = `<div class="calc-line"><span class="muted">Dnes platí</span>
       <b class="num">${fmt(C.valueAt(s.bazal, t))} kcal/deň</b></div>`;
+    const tp = C.valueAt(s.tef, t) || 0;
+    $('#prev-tef', view).innerHTML = `<div class="calc-line"><span class="muted">Dnes platí ${fmt(tp, tp % 1 ? 1 : 0)} %</span>
+      <b class="num">z 2 000 kcal jedla = ${fmt(20 * tp)} kcal</b></div>`;
     $('#prev-stepCoef', view).innerHTML = `<div class="calc-line"><span class="muted">Dnes: ${fmt(k, 6)} × ${fmt(w, 1)} kg</span>
       <b class="num">${fmt(k * w, 4)} kcal/krok</b></div>
       <div class="calc-line"><span class="muted">10 000 krokov</span><b class="num">${fmt(k * w * 1e4)} kcal</b></div>`;
@@ -792,7 +805,7 @@ function renderSettings(view) {
     const h = arr[Number(row.dataset.i)];
     $$('input', row).forEach((inp) => inp.addEventListener('input', () => {
       if (inp.dataset.k === 'from') { if (inp.value) h.from = inp.value; }
-      else { const n = parseNum(inp.value); if (n) h.value = n; }
+      else { const n = parseNum(inp.value); if (n || (n === 0 && row.dataset.hist === 'tef')) h.value = n; }
       arr.sort((a, b) => a.from.localeCompare(b.from));
       save();
       updPrev();
