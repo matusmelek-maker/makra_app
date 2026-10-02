@@ -960,7 +960,12 @@ function renderSettings(view) {
       <h2>Nebezpečná zóna</h2>
       <button class="btn danger" id="wipe">Vymazať všetky dáta v tomto zariadení</button>
     </section>
-    <p class="muted" style="text-align:center;font-size:12px">Makrá · offline aplikácia</p>`;
+    <p class="muted" style="text-align:center;font-size:12px">Makrá · offline aplikácia · <span id="app-version"></span></p>`;
+  caches?.keys?.().then((keys) => {
+    const v = keys.map((k) => k.match(/^makra-v(\d+)$/)?.[1]).filter(Boolean).sort((a, b) => b - a)[0];
+    const el = $('#app-version');
+    if (el) el.textContent = v ? `verzia ${v}` : '';
+  }).catch(() => {});
 
   const bind = (id, fn) => $('#' + id, view).addEventListener('input', (e) => { fn(e.target.value); save(); });
   bind('s-start', (v) => v && (s.startDate = v));
@@ -1205,7 +1210,19 @@ function renderCloudStatus() {
 // ---------- start ----------
 navigator.storage?.persist?.();
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  const hadController = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.register('sw.js').then((reg) => {
+    // appka z plochy sa často len prebudí -> pri návrate skontroluj, či nie je nová verzia
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) reg.update().catch(() => {}); });
+  }).catch(() => {});
+  // nová verzia prevzala riadenie -> raz načítaj stránku znova (dáta sa najprv uložia)
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    flush();
+    location.reload();
+  });
 }
 render();
 // po spustení dobehni zálohu, ak minule nevyšla; trvalé chyby ukáž
