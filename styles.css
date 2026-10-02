@@ -90,6 +90,19 @@ main { padding: 0 16px; max-width: 640px; margin: 0 auto; }
 }
 .card h2 small { text-transform: none; letter-spacing: 0; font-weight: 500; }
 
+/* zbaliteľné karty */
+.card.foldable > h2 { justify-content: flex-start; cursor: pointer; user-select: none; -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent; }
+.card.foldable > h2 > small, .card.foldable > h2 > .btn { margin-left: auto; }
+.card.foldable > h2::before {
+  content: ''; flex-shrink: 0; align-self: center; width: 6px; height: 6px; margin: 0 2px 3px 1px;
+  border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+  transform: rotate(45deg); transition: transform 0.15s;
+}
+.card.collapsed > h2::before { transform: rotate(-45deg); margin-bottom: 0; }
+.card.collapsed > h2 { margin-bottom: 0; }
+.card.collapsed > :not(h2) { display: none !important; }
+
 .muted { color: var(--muted); }
 .num { font-variant-numeric: tabular-nums; }
 

@@ -140,6 +140,46 @@ function render() {
   ({ day: renderDay, weeks: renderWeeks, goal: renderGoal, settings: renderSettings })[tab](view);
 }
 
+// ---------- zbaliteľné karty: ťuk na nadpis karty ju zbalí/rozbalí, appka si to pamätá ----------
+const FOLD_KEY = 'makra-collapsed';
+let folded;
+try {
+  folded = new Set(JSON.parse(localStorage.getItem(FOLD_KEY)) || []);
+} catch {
+  folded = new Set();
+}
+function foldKey(card) {
+  const h2 = card.querySelector(':scope > h2');
+  return `${tab}:${card.id || (h2?.firstChild?.textContent || '').trim()}`;
+}
+function applyFold(view) {
+  $$('.card', view).forEach((card) => {
+    if (!card.querySelector(':scope > h2')) return; // karty bez nadpisu (bilancia dňa, kruh cieľa) ostávajú otvorené
+    card.classList.add('foldable');
+    card.classList.toggle('collapsed', folded.has(foldKey(card)));
+  });
+}
+function setFold(card, on) {
+  const k = foldKey(card);
+  if (on) folded.add(k);
+  else folded.delete(k);
+  card.classList.toggle('collapsed', on);
+  try {
+    localStorage.setItem(FOLD_KEY, JSON.stringify([...folded]));
+  } catch {}
+}
+document.addEventListener('click', (e) => {
+  const h2 = e.target.closest('.card.foldable > h2');
+  if (!h2) return;
+  const card = h2.parentElement;
+  // tlačidlo v nadpise (napr. Nahrať zo Zdravia, + Pridať) kartu len otvorí
+  if (e.target.closest('button, a, input, select, label')) {
+    if (card.classList.contains('collapsed')) setFold(card, false);
+    return;
+  }
+  setFold(card, !card.classList.contains('collapsed'));
+});
+
 // ---------- DAY ----------
 function renderDay(view) {
   const d = parseD(currentDate);
@@ -207,6 +247,7 @@ function renderDay(view) {
   $('#from-health', view).addEventListener('click', () => { healthPanelOpen = !healthPanelOpen; renderHealthBox(view); });
   renderHealthBox(view);
   updateDayComputed();
+  applyFold(view);
 }
 
 // ---------- import z Apple Zdravia ----------
@@ -696,6 +737,7 @@ function renderGoal(view) {
     </section>`;
 
   renderCalc($('#calc-card', view));
+  applyFold(view);
   lineChart($('#chart-remaining', view), g.series.map((p) => ({ date: p.date, y: p.remaining })), { unit: 'kcal', dec: 0, area: true });
   lineChart($('#chart-weight', view), weightSeries, { unit: 'kg', dec: 1 });
   renderMeasurements();
@@ -944,6 +986,7 @@ function renderSettings(view) {
   $('#import-file', view).addEventListener('change', importData);
   $('#undo-import', view)?.addEventListener('click', undoImport);
   renderCloud($('#cloud-card', view));
+  applyFold(view);
   $('#wipe', view).addEventListener('click', () => {
     if (!confirm('Naozaj vymazať všetky dáta? Najprv si stiahni zálohu!')) return;
     if (!confirm('Posledné potvrdenie – vymazať?')) return;
