@@ -96,6 +96,9 @@ export function parseHealthPayload(text) {
   const zeros = Object.keys(values).filter((k) => values[k] === 0);
   zeros.forEach((k) => delete values[k]);
   const kcalZero = zeros.includes('kcal');
+  // kcal_list prišiel prázdny = skratka nenašla v Zdraví ani jeden záznam energie (typicky chýba povolenie na čítanie)
+  const kl = lower.kcal_list;
+  const kcalNoSamples = kcalZero && kl !== undefined && (Array.isArray(kl) ? !kl.length : !String(kl).trim());
 
-  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj, kcalZero, zeros };
+  return { date: normDate(lower.date ?? lower.datum ?? lower['dátum']), values, raw: obj, kcalZero, kcalNoSamples, zeros };
 }

@@ -227,7 +227,7 @@ function applyHealth(text, view) {
   save(true);
   setPendingHealth(null);
   healthPanelOpen = false;
-  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero, zeros: p.zeros };
+  lastImport = { date, prev, values: p.values, raw: JSON.stringify(p.raw, null, 1), kcalZero: p.kcalZero, kcalNoSamples: p.kcalNoSamples, zeros: p.zeros };
   currentDate = date;
   renderDay(view);
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
@@ -297,9 +297,14 @@ function renderHealthBox(view, { error, paste, raw } = {}) {
     const zeroMacros = (lastImport.zeros || []).filter((k) => k !== 'kcal').map((k) => MACRO_LABEL[k].toLowerCase());
     const notes = [];
     if (noKcal) {
-      notes.push(lastImport.kcalZero
-        ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: <b class="num">${fmt(C.macroKcal(data.days[lastImport.date] || {}))} kcal</b>.`
-        : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.');
+      const fromMacros = `<b class="num">${fmt(C.macroKcal(data.days[lastImport.date] || {}))} kcal</b>`;
+      notes.push(lastImport.kcalNoSamples
+        ? `Skratka v Zdraví nenašla ani jeden záznam <b>Energia v potrave</b> – zrejme nemá povolené ich čítať.
+           Zapni to v appke Zdravie → Výživa → Energia v potrave → Zdroje údajov a prístup → Skratky.
+           Zatiaľ rátam kalórie z makier: ${fromMacros}.`
+        : lastImport.kcalZero
+          ? `Zdravie poslalo kalórie ako 0 – rátam ich z makier: ${fromMacros}.`
+          : 'Kalórie neprišli – pozri nižšie, čo poslala skratka.');
     }
     if (zeroMacros.length) notes.push(`Ako 0 prišlo: ${zeroMacros.join(', ')} – tie som neprepísal.`);
     box.innerHTML = `<div class="callout ${notes.length ? 'bg-ok' : 'bg-good'}" style="margin:0 0 12px">
