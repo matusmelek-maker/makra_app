@@ -7,7 +7,8 @@ Beží zadarmo cez GitHub Pages, funguje offline a dá sa pridať na plochu tele
 - **Deň**: bilancia = zjedené − bazál (len ak je zapísané jedlo) − posilka − šport − kroky × koeficient × váha
 - **Makrá**: sacharidy = cieľ + výdaj pohybom / 4,1; odchýlky bielkovín, tukov, vlákniny
 - **Týždne**: súčet Po–Ne s farbami (< −2800 modrá, do −700 zelená, do 0 žltá, > 0 červená)
-- **Cieľ**: zostáva spáliť = kg tuku × 7700 + súčet bilancií; graf, váha, merania InBody
+- **Štatistika**: zostáva spáliť = kg tuku × 7700 + súčet bilancií; grafy váhy, tuku a svalov, merania InBody
+- **Kalkulačka**: plán makier (deficit, bielkoviny a tuky na kg, vláknina) – z neho sa počítajú denné ciele
 - Bazál a koeficient krokov sa dajú meniť **od dátumu** (staré dni sa neprepočítajú)
 
 ## Jedlo z Kalorických tabuliek (iPhone)
