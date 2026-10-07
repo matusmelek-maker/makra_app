@@ -329,6 +329,25 @@ function applyHealth(text, view) {
   toast(`Načítané zo Zdravia za ${dmy(date)}`);
 }
 
+// Skratka môže appku otvoriť sama a údaje poslať v adrese: …/makra_app/#zdravie=<URL-kódovaný slovník>.
+// iPhone takú adresu otvorí v Safari, ktoré má iné dáta ako appka z plochy -> tam nič neukladaj bez opýtania.
+let incomingHealth = null;
+const isStandalone = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function takeHashHealth() {
+  const m = location.hash.match(/^#(?:zdravie|health)=([\s\S]*)$/);
+  if (!m) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  let text = m[1];
+  try { text = decodeURIComponent(text); } catch {}
+  if (tab !== 'day') go('day');
+  if (isStandalone()) applyHealth(text, $('#view'));
+  else {
+    incomingHealth = text;
+    renderHealthBox($('#view'));
+  }
+}
+window.addEventListener('hashchange', takeHashHealth);
+
 // Po návrate zo Skratiek ukáž krok 2
 document.addEventListener('visibilitychange', () => {
   if (!document.hidden && tab === 'day' && pendingHealth()) renderHealthBox($('#view'));
@@ -351,6 +370,20 @@ function rawDetails(raw) {
 function renderHealthBox(view, { error, paste, raw } = {}) {
   const box = $('#health-box', view);
   if (!box) return;
+  if (incomingHealth) {
+    const n = Object.keys(data.days).length;
+    box.innerHTML = `<div class="callout bg-ok" style="margin:0 0 12px">
+      <b>Skratka otvorila Makrá v Safari, nie appku z plochy.</b>
+      <div style="margin-top:6px;font-size:14px">Safari má vlastné, oddelené dáta (${n ? `je tu ${n} ${daysWord(n)}` : 'nie sú tu žiadne tvoje dni'}),
+        preto som zatiaľ nič neuložil. Údaje sú aj v schránke – otvor <b>Makrá z plochy</b> → <b>Nahrať zo Zdravia</b> → <b>2. Vložiť údaje</b>.</div>
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn secondary" id="health-here">Uložiť sem aj tak</button>
+        <button class="btn secondary" id="health-drop">Zavrieť</button></div>
+    </div>`;
+    $('#health-here', box).addEventListener('click', () => { const t = incomingHealth; incomingHealth = null; applyHealth(t, view); });
+    $('#health-drop', box).addEventListener('click', () => { incomingHealth = null; renderHealthBox(view); });
+    return;
+  }
   if (error || paste) {
     box.innerHTML = `<div class="callout ${error ? 'bg-bad' : 'bg-none'}" style="margin:0 0 12px">
       ${error ? `<div style="margin-bottom:8px">${esc(error)}</div>${rawDetails(raw)}` : ''}
@@ -1280,6 +1313,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   });
 }
 render();
+takeHashHealth();
 // po spustení dobehni zálohu, ak minule nevyšla; trvalé chyby ukáž
 if (Cloud.cloudEnabled()) {
   setTimeout(async () => {
