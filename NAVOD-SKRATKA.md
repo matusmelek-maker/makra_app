@@ -95,6 +95,13 @@ Nové akcie Skratky pridávajú na koniec – **podrž ich a potiahni nad Slovn�
 
 9. Pridaj **Kopírovať do schránky** (*Copy to Clipboard*) → vstup **Slovník**.
 10. *(voliteľné)* **Zobraziť oznámenie**: `Hotovo – vráť sa do Makrá`
+11. *(skúšobné, namiesto bodu 10)* návrat do appky bez vkladania:
+    - **Kódovať URL** (*URL Encode*) → vstup **Slovník**,
+    - **Text**: `https://matusmelek-maker.github.io/makra_app/#zdravie=` a hneď za to premenná **Kódovaný text** (*URL Encoded Text*),
+    - **Otvoriť URL adresy** (*Open URLs*) → vstup **Text**.
+
+    Appka údaje zapíše sama. Ak sa otvorí v Safari namiesto appky z plochy, nič neuloží (Safari má oddelené dáta)
+    a ukáže, čo robiť – údaje sú stále aj v schránke.
 
 Hotovo, skratka je uložená automaticky.
 
