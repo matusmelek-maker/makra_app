@@ -792,6 +792,9 @@ function renderStats(view) {
     return `<div class="stat"><span>${label}</span><b>${fmt(b.y, 1)} ${unit}
       ${series.length > 1 ? `<small class="${good ? 'lvl-good' : 'lvl-bad'}">(${fmtSigned(d, 1)})</small>` : ''}</b></div>`;
   };
+  // skutočne zhodený tuk podľa InBody (prvé vs. posledné meranie) oproti cieľu
+  const fatLost = fatSeries.length > 1 ? fatSeries[0].y - fatSeries[fatSeries.length - 1].y : null;
+  const fatProg = fatLost > 0 && s.goalFatKg > 0 ? Math.min(1, fatLost / s.goalFatKg) : 0;
   const lastFat = meas.filter((m) => m.fatKg).slice(-1)[0];
   const fatPct = lastFat ? (lastFat.fatKg / C.weightAt(data, lastFat.date)) * 100 : null;
 
@@ -816,6 +819,24 @@ function renderStats(view) {
         <div class="stat"><span>Odhad cieľa</span><b>${g.eta ? dmy(g.eta) : '—'}</b></div>
         <div class="stat"><span>Počiatočná váha</span><b>${fmt(s.startWeight, 1)} kg</b></div>
         <div class="stat"><span>Aktuálna váha</span><b>${fmt(g.currentWeight, 1)} kg <small class="${g.currentWeight <= s.startWeight ? 'lvl-good' : 'lvl-bad'}">(${fmtSigned(g.currentWeight - s.startWeight, 1)})</small></b></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Tuk dole <small>InBody</small></h2>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120">
+          <circle class="track" cx="60" cy="60" r="${R}"/>
+          <circle class="val" cx="60" cy="60" r="${R}" style="stroke:var(--c-fat)" stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - fatProg)}"/>
+          <text x="60" y="60">${fmt(fatProg * 100)} %</text>
+        </svg>
+        <div>${fatLost === null
+          ? `<div class="muted" style="font-size:14px">Na výpočet treba aspoň 2 merania tuku z InBody (zatiaľ ${fatSeries.length}). Pridáš ich dole v karte Merania.</div>`
+          : `<div class="muted" style="font-size:14px">${fatLost >= 0 ? 'Zhodil si tuku' : 'Tuku pribudlo'}</div>
+          <div style="font-size:30px;font-weight:700;letter-spacing:-0.02em" class="num ${fatLost >= 0 ? 'lvl-good' : 'lvl-bad'}">${fmt(Math.abs(fatLost), 1)} kg</div>
+          <div class="muted num">z cieľa ${fmt(s.goalFatKg)} kg${fatLost > 0 && fatLost < s.goalFatKg ? ` · zostáva ${fmt(s.goalFatKg - fatLost, 1)} kg` : ''}</div>
+          <div class="muted num" style="font-size:13px">${fmt(fatSeries[0].y, 1)} → ${fmt(fatSeries[fatSeries.length - 1].y, 1)} kg · ${dmy(fatSeries[0].date, false)} – ${dmy(fatSeries[fatSeries.length - 1].date)}</div>`}
+        </div>
       </div>
     </section>
 
