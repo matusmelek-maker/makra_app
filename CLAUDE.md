@@ -24,7 +24,7 @@ Beží na GitHub Pages: https://matusmelek-maker.github.io/makra_app/ (z vetvy `
   - `renderDay` – karta „Kalórie a makrá“ (kruhový graf `foodRing`, bilancia, riadok kalórií + 4 makrá, `macroAdvice`),
     Pohyb (posilka, šport, kroky, kroky zo športu, váha), Poznámka. Prepočet v `updateDayComputed`.
   - Import zo Zdravia: `runHealthShortcut` → `pasteHealth` → `applyHealth` / `renderHealthBox`.
-  - `renderStats` – kruh pokroku k cieľu (prvý), Prehľad tela, grafy (váha, tuk, svaly, zostávajúce kcal; `lineChart`), merania InBody.
+  - `renderStats` – kruh pokroku k cieľu (prvý), kruh „Tuk dole“ (zhodený tuk z InBody vs. cieľ), Prehľad tela, grafy (váha, tuk, svaly, zostávajúce kcal; `lineChart`), merania InBody.
   - `renderCalcTab` / `renderCalc` – „Môj plán makier“ (jediné miesto pre ciele makier, `settings.plan`).
   - `renderSettings` – cieľ, histórie bazál / koeficient krokov / TEF, Apple Zdravie, cloud záloha, záloha JSON (import **zlučuje**, s možnosťou vrátiť).
   - Zbaliteľné karty: `applyFold(view)`, trieda `foldable`/`collapsed`, stav v localStorage `makra-collapsed`; deti s `.keep` ostanú viditeľné.
